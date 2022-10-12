@@ -49,7 +49,7 @@ args = (tau_E,tau_I,theta,lambda_D,lambda_E,
         w_EP,w_DS,w_DE,w_PE,w_PS,w_SE,x_E,x_D,x_ext_PV,x_ext_SOM)
 
 # functions, equations 2-6 in the paper
-def I(I_D, I_E, c):
+def I(I_D, I_E, c=0):
     return lambda_D*(np.maximum(0, I_D + c) + (1-lambda_E)*I_E)
 
 def I_E(x_E, rP):
@@ -74,9 +74,7 @@ def dxdt(x, t, *args):
 
     I_E_param = I_E(x_E,rP)
     I_D_param = I_D(x_D, rS, rE)
-    I_D0_param = I_D0(I_E_param,I_D_param)
-    c_param = c(I_D0_param)
-    I_param = I(I_D_param, I_E_param, c_param)
+    I_param = I(I_D_param, I_E_param)
 
     drEdt = (1/tau_E)*(-rE + np.maximum(0,I_param - theta))
     drPdt = (1/tau_I)*\
@@ -88,18 +86,21 @@ def dxdt(x, t, *args):
     return dxdt1d
 
 
-t = np.linspace(0, 200, 200)
-E0 = 1*np.ones(N_PC)
-P0 = 2*np.ones(N_PV)
-S0 = 2*np.ones(N_SOM)
+t = np.linspace(0, 0.1, int(0.1*(1/0.01)))
+E0 = np.random.rand(N_PC)
+P0 = np.random.rand(N_PV)
+S0 = np.random.rand(N_SOM)
 
 x0 = np.concatenate((E0, P0, S0))
 sol = odeint(dxdt, x0, t, args=(tau_E,tau_I,theta,lambda_D,lambda_E,w_EP,
         w_DS,w_DE,w_PE,w_PS,w_SE,x_E,x_D,x_ext_PV,x_ext_SOM))
 
-plt.plot(t, sol[:, 0], 'r', label='PC')
-plt.plot(t, sol[:, N_PC], 'g', label='PV')
-plt.plot(t, sol[:, -1], 'b', label='SOM/SST')
+rE = np.mean(sol[:, :N_PC], axis=1)
+rP = np.mean(sol[:, N_PC:N_PC+N_PV], axis=1)
+rS = np.mean(sol[:, N_PC+N_PV:], axis=1)
+plt.plot(t, rE, 'r', label='PC')
+plt.plot(t, rP, 'g', label='PV')
+plt.plot(t, rS, 'b', label='SOM/SST')
 plt.legend(loc='best')
 plt.xlabel('time [ms]')
 plt.ylabel('Firing rates [Hz]')
