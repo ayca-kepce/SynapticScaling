@@ -14,100 +14,92 @@ from numba import cuda, jit
 import matplotlib.pyplot as plt
 from util import *
 
-sim_duration = 5  # s
-delta_t = 0.00001  # s
-sim_timepoints = int(sim_duration * (1 / delta_t))
 
-rE = np.zeros(sim_timepoints, dtype=np.float64)
-rP = np.zeros(sim_timepoints, dtype=np.float64)
-rS = np.zeros(sim_timepoints, dtype=np.float64)
-t = np.float16(np.linspace(0, sim_duration, sim_timepoints))
+@jit(nopython=True)
+def euler_loop(delta_t,vars,t,num_neurons,weights,noises,back_inputs,stimulus,taus,exc_params,flags):
+    (rE1, rE2, rP, rS) = vars
+    (N_PC, N_PV, N_SOM) = num_neurons
+    (w_DE1, w_DE12, w_DS1, w_EP1, w_PE1, w_SE1, w_DE2, w_DE21, w_DS2, w_EP2, w_PE2, w_SE2, w_PS, w_PP) = weights
+    (noise_E1,noise_E2,noise_P,noise_S) = noises
+    (x_E, x_D, x_P, x_S) = back_inputs
+    (tau_E, tau_I) = taus
+    (theta, lambda_D, lambda_E) = exc_params
+    (plasticity, synaptic_scaling) = flags
 
-
-#@jit(target_backend='cpu')
-def simulation(rE,rP,rS,t,delta_t):
-    N_PC = 160
-    N_PV = 20
-    N_SOM = 20
-
-    stim_start = 26.5
-    stim_strength = 0
     np.random.seed(124)
-
-    tau_E = 0.06 # s
-    tau_I = 0.002 # s
-    theta = np.ones(N_PC)*14 # 1/s
-
-
-    lambda_D = 0.27
-    lambda_E = 0.31
-
-    # w_ij is from j to i
-    w_EP = connection_probability(1 * np.random.rand(N_PC, N_PV) + .5 * np.ones((N_PC, N_PV)), 0.60, 1)
-    w_DS = connection_probability(1 * np.random.rand(N_PC, N_SOM) + .5 * np.ones((N_PC, N_SOM)), 0.55, 0.35)
-    w_PE = connection_probability(1 * np.random.rand(N_PV, N_PC) + .5 * np.ones((N_PV, N_PC)), 0.45, 0.5)
-    w_PP = connection_probability(1 * np.random.rand(N_PV, N_PV) + .5 * np.ones((N_PV, N_PV)), 0.50, 2)
-    w_PS = connection_probability(1 * np.random.rand(N_PV, N_SOM) + .5 * np.ones((N_PV, N_SOM)), 0.60, 1.5)
-    w_DE = connection_probability(1 * np.random.rand(N_PC, N_PC) + .5 * np.ones((N_PC, N_PC)), 0.10, 1.5)
-    w_SE = connection_probability(1 * np.random.rand(N_SOM, N_PC) + .5 * np.ones((N_SOM, N_PC)), 0.35, 0.5)
-
-    # inhibiting S, disinhibiting P
-    w_SP = connection_probability(1 * np.random.rand(N_PV, N_PV) + .5 * np.ones((N_PV, N_PV)), 0.50, 0)
-    w_SS = connection_probability(1 * np.random.rand(N_PV, N_PV) + .5 * np.ones((N_PV, N_PV)), 0.50, 2)
-
-    # random assigned # you can use 1, 0, 2, 2 config as well
-    x_E = 28*np.ones(N_PC)
-    x_D = 0*np.ones(N_PC)
-    x_P  = 2*np.ones(N_PV)
-    x_S = 2*np.ones(N_SOM)
-
-    E0 = np.random.rand(N_PC) + 3*np.ones(N_PC)
+    # setting up initial conditions
+    E01 = np.random.rand(N_PC)
+    E02 = np.random.rand(N_PC)
     P0 = np.random.rand(N_PV)
     S0 = np.random.rand(N_SOM)
 
     step = 0
     for i in t:
         # averages are calculated
-        rE[step] = np.mean(E0)
+        rE1[step] = np.mean(E01)
+        rE2[step] = np.mean(E02)
         rP[step] = np.mean(P0)
         rS[step] = np.mean(S0)
 
-        I_E = x_E - np.matmul(w_EP, P0)
-        I_D = x_D - np.matmul(w_DS,S0) + np.matmul(w_DE, E0)
-        I = lambda_D*I_D + (1-lambda_E)*I_E
+        I_E1 = x_E - w_EP1 @ P0
+        I_D1 = x_D - w_DS1 @ S0 + w_DE1 @ E01 + w_DE12 @ E02
+        I1 = lambda_D*I_D1 + (1-lambda_E)*I_E1
 
-        if i < stim_start:
-            stimulus = 0
-        else:
-            stimulus = stim_strength
+        I_E2 = x_E - w_EP2 @ P0
+        I_D2 = x_D - w_DS2 @ S0 + w_DE2 @ E02 + w_DE21 @ E01
+        I2 = lambda_D*I_D2 + (1-lambda_E)*I_E2
 
 
-        E = E0 + delta_t*(1/tau_E)*( -E0 + np.maximum(0,I - theta) + stimulus) #+ np.random.rand(N_PC))
-        P = P0 + delta_t*(1/tau_I)*( -P0 + np.matmul(w_PE,E0) - np.matmul(w_PS, S0) - np.matmul(w_PP, P0) + x_P) # + np.random.rand(N_PV))
-        S = S0 + delta_t*(1/tau_I)*( -S0 + np.matmul(w_SE,E0) - np.matmul(w_SP, P0) - np.matmul(w_SS, S0) + x_S) # + np.random.rand(N_SOM))
 
-        E[E < 0] = 0
+        term00 = delta_t * (1 / tau_E) * np.mean(-E01)
+        term01 = delta_t * (1 / tau_E) * np.mean(np.maximum(0, I1 - theta))
+
+        term02 = delta_t * (1 / tau_E) * stimulus[step]
+        #terms_sum1 = np.sum(term00 + term01 + term02)
+        E1 = E01 + delta_t*(1/tau_E)*( -E01 + np.maximum(0,I1 - theta)+ stimulus[step] + noise_E1[:,step])
+
+        term03 = delta_t * (1 / tau_E) * np.mean(-E02)
+        term04 = delta_t * (1 / tau_E) * np.mean(np.maximum(0, I2 - theta))
+        term05 = delta_t * (1 / tau_E) * np.mean(noise_E2[:,step])
+        #terms_sum2 = np.sum(term03 + term04 + term05)
+        E2 = E02 + delta_t*(1/tau_E)*( -E02 + np.maximum(0,I2 - theta) + noise_E2[:,step])
+
+        term06 = delta_t * (1 / tau_I) * np.mean(w_PE1@ E01)
+        term07 = delta_t * (1 / tau_I) * np.mean(w_PE1@ E02)
+        term08 = delta_t * (1 / tau_I) * np.mean(-w_PS@ S0)
+        term09 = delta_t * (1 / tau_I) * np.mean(-w_PP@ P0)
+        term10 = delta_t * (1 / tau_I) * np.mean(x_P)
+        #terms_sum3 = np.sum(term06 + term07 + term08 + term09 + term10)
+        P = P0 + delta_t*(1/tau_I)*( -P0 + w_PE1 @ E01 + w_PE2 @ E02 - w_PS @ S0 - w_PP @ P0 + x_P + stimulus[step] + noise_P[:,step])
+
+        term11 = delta_t * (1 / tau_I) * np.mean(-S0)
+        term12 = delta_t * (1 / tau_I) * np.mean(w_SE1@ E01)
+        term13 = delta_t * (1 / tau_I) * np.mean(w_SE2@ E02)
+        term14 = delta_t * (1 / tau_I) * np.mean(x_S)
+        term15 = delta_t * (1 / tau_I) * np.mean(noise_S[:,step])
+        #terms_sum4 = np.sum(term11 + term12 + term13 + term14 + term15)
+        S = S0 + delta_t*(1/tau_I)*( -S0 + w_SE1 @ E01 + w_SE2 @ E02 + x_S  + noise_S[:,step])
+
+        E1[E1 < 0] = 0
+        E2[E2 < 0] = 0
         P[P < 0] = 0
         S[S < 0] = 0
 
         # placeholder parameters are freed
-        E0 = E
+        E01 = E1
+        E02 = E2
         P0 = P
         S0 = S
 
         # counter is updated
         step=step+1
-    return rE,rP,rS
+        if not np.mod(step, 10000):
+            print("I1",term01)
+            print("I2",term04)
+            print("e1->p",term06)
+            print("e2->p",term07)
+            print("s->p",term08)
+            print("p->p",term09)
+            print("e1->s",term12)
+            print("e2->s",term13)
 
-    """plt.figure()
-    plt.plot(t[:], rE[:], 'r', label='PC,  saturates at '+ str(np.round(np.mean(rE[-80:]),3)) + 'Hz')
-    plt.plot(t[:], rP[:], 'g', label='PV,  saturates at '+ str(np.round(np.mean(rP[-80:]),3)) + 'Hz')
-    plt.plot(t[:], rS[:], 'b', label='SST, saturates at '+ str(np.round(np.mean(rS[-80:]),3)) + 'Hz')
-    plt.legend(loc='best')
-    plt.xlabel('time [ms]')
-    plt.ylabel('Firing rates [Hz]')
-    plt.grid()
-    plt.show()"""
-
-rE_sol,rP_sol,rS_sol = simulation(rE, rP, rS, t, delta_t)
-show_plot(rE_sol, rP_sol, rS_sol, t)
