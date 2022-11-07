@@ -48,10 +48,10 @@ def show_plot_2D(rE1, rE2, rP1, rP2, rS1, rS2, t, stim_time, delta_t, title = No
     plt.plot(t[:], rE2[:], 'xkcd:yellowgreen', label='PC2, base:'
         + str(np.round(np.mean(rE2[stim_time - 200:stim_time]), 3)) + 'Hz, s.s. after stimulus:'
         + str(np.round(np.mean(rE2[-200:]), 3)),linewidth=plot_line_width)
-    plt.plot(t[:], rP1[:], 'xkcd:dodger blue', label='PV, base:'
+    plt.plot(t[:], rP1[:], 'xkcd:dodger blue', label='PV1, base:'
         + str(np.round(np.mean(rP1[stim_time - 200:stim_time]), 3)) + 'Hz, s.s. after stimulus:'
         + str(np.round(np.mean(rP1[-200:]), 3)), linestyle='dashed',linewidth=plot_line_width)
-    plt.plot(t[:], rP2[:], 'xkcd:duck egg blue', label='PV, base:'
+    plt.plot(t[:], rP2[:], 'xkcd:duck egg blue', label='PV2, base:'
         + str(np.round(np.mean(rP2[stim_time - 200:stim_time]), 3)) + 'Hz, s.s. after stimulus:'
         + str(np.round(np.mean(rP2[-200:]), 3)),linewidth=plot_line_width)
     plt.plot(t[:], rS1[:], 'xkcd:coral', label='SST, base:'

@@ -536,14 +536,14 @@ def analyze_model_2D_plasticity_scaling():
 
 
 def analyze_model_2D_mass_plasticity_scaling():
-    sim_duration = 3 # s
+    sim_duration = 30 # s
     delta_t = 0.00005  # s
     sim_timepoints = int(sim_duration * (1 / delta_t))
     t = np.linspace(0, sim_duration, sim_timepoints)
     stim_start = 2
     stim_stop = 2.5
-    stim_strength = 10
-    upper_bound = 1
+    stim_strength = .10
+    upper_bound = 2
 
     # number of neurons
     N_PC = 2
@@ -580,12 +580,12 @@ def analyze_model_2D_mass_plasticity_scaling():
     hebb11,ss_EE11,hebb21,ss_EE21,ss_EP21,ss_ES21)
 
 
-    tau_E = 0.06  # s
+    tau_E = 0.02  # s
     tau_P = 0.005  # s
     tau_S = 0.01  # s
     tau_plas = 1
     tau_scaling = 10
-    tau_theta = 5
+    tau_theta = 2
     taus = (tau_E, tau_P, tau_S, tau_plas, tau_scaling, tau_theta)
 
     lambda_D = 0.27; lambda_E = 0.31
@@ -598,13 +598,13 @@ def analyze_model_2D_mass_plasticity_scaling():
     x_S = 1 * np.ones(N_SOM)
     back_inputs = (x_E, x_D, x_P, x_S)
 
-    w_DE11, w_DE12, w_DE21, w_DE22 = .2,.2,.2,.2
-    w_DS11, w_DS12, w_DS21, w_DS22 = .3,.3,.3,.3
-    w_EP11, w_EP12, w_EP21, w_EP22 = .45,.45,.45,.45
-    w_PE11, w_PE12, w_PE21, w_PE22 = .4,.4,.4,.4
-    w_SE11, w_SE12, w_SE21, w_SE22 = .1,.1,.1,.1
-    w_PS11, w_PS12, w_PS21, w_PS22 = .18,.18,.18,.18
-    w_PP11, w_PP12, w_PP21, w_PP22 = .45,.45,.45,.45
+    w_DE11, w_DE12, w_DE21, w_DE22 = 1.75,1.5,1.5,1.75 # fixed
+    w_DS11, w_DS12, w_DS21, w_DS22 = .8,.2,.2,.8
+    w_EP11, w_EP12, w_EP21, w_EP22 = .4,.1,.1,.4
+    w_PE11, w_PE12, w_PE21, w_PE22 = .7,.6,.6,.7
+    w_SE11, w_SE12, w_SE21, w_SE22 = .3,.2,.2,.3
+    w_PS11, w_PS12, w_PS21, w_PS22 = .3,.1,.1,.3
+    w_PP11, w_PP12, w_PP21, w_PP22 = .2,.1,.1,.2
     weight_strengths = (
         w_DE11, w_DE12, w_DS11, w_EP11, w_PE11, w_SE11, w_PS11, w_PP11, w_DS12, w_EP12, w_PE12, w_SE12, w_PS12, w_PP12,
         w_DE22, w_DE21, w_DS21, w_EP21, w_PE21, w_SE21, w_PS21, w_PP21, w_DS22, w_EP22, w_PE22, w_SE22, w_PS22, w_PP22)
@@ -647,11 +647,12 @@ def analyze_model_2D_mass_plasticity_scaling():
     hebbian_plasticity_flag = 1
     exc_scaling_flag = 1
     inh_scaling_flag = 1
-    flags = (hebbian_plasticity_flag, exc_scaling_flag, inh_scaling_flag)
+    BCM_flag = 1
+    flags = (hebbian_plasticity_flag, exc_scaling_flag, inh_scaling_flag, BCM_flag)
 
     model_2D_plasticity_scaling(delta_t, vars, initial_values,t, num_neurons, weights, noises, back_inputs,
                                 stim_strength, stim_start, stim_stop, taus, lambdas, theta_default, upper_bound, flags=flags)
-    show_plot_plasticity_terms(hebb11, ss_EE11, hebb21, ss_EE21, ss_EP21, ss_ES21, t, stim_start)
+    #show_plot_plasticity_terms(hebb11, ss_EE11, hebb21, ss_EE21, ss_EP21, ss_ES21, t, stim_start)
     show_plot_2D(rE1, rE2, rP1, rP2, rS1, rS2, t, stim_start, delta_t,
                  title=str(weight_strengths[:8])+"  "+str(back_inputs[0][0])+"  "+str(back_inputs[1][0])+"  "+
                        str(back_inputs[2][0])+"  "+str(back_inputs[3][0])+" "+str(stim_strength))

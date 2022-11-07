@@ -175,7 +175,7 @@ def model_2D(delta_t,vars,t,num_neurons,weights,noises,back_inputs,stimulus,stim
 
 
 
-#@jit(nopython=True)
+@jit(nopython=True)
 def model_2D_plasticity_scaling(delta_t,vars,initial_values,t,num_neurons,weights,noises,back_inputs,\
                                 stim_strength,stim_start,stim_stop,taus,lambdas,theta_E_default,upper_bound,indv_neurons=None,flags=(0,0,0)):
     (rE1, rE2, rP1, rP2, rS1, rS2,
@@ -194,7 +194,7 @@ def model_2D_plasticity_scaling(delta_t,vars,initial_values,t,num_neurons,weight
     (tau_E, tau_P, tau_S, tau_plas, tau_scaling, tau_theta) = taus
     (lambda_D, lambda_E) = lambdas
     theta_E1 = np.ones(N_PC);theta_E2 = np.ones(N_PC)
-    (hebbian_plasticity_flag, exc_scaling_flag, inh_scaling_flag)= flags
+    (hebbian_plasticity_flag, exc_scaling_flag, inh_scaling_flag, BCM_flag)= flags
 
     np.random.seed(124)
     # setting up initial conditions
@@ -232,7 +232,7 @@ def model_2D_plasticity_scaling(delta_t,vars,initial_values,t,num_neurons,weight
             heb_plas_mask = hebbian_plasticity_flag
             exc_scal_mask = exc_scaling_flag
             inh_scal_mask = inh_scaling_flag
-            BCM_mask = (heb_plas_mask or exc_scal_mask or inh_scal_mask)
+            BCM_mask = (heb_plas_mask or exc_scal_mask or inh_scal_mask) and BCM_flag
             stimulus = stim_strength
         elif step == int(stim_stop * (1 / delta_t)):
             stimulus = 0
@@ -251,7 +251,7 @@ def model_2D_plasticity_scaling(delta_t,vars,initial_values,t,num_neurons,weight
         E1 = E01 + delta_t*(1/tau_E)*( -E01 + np.maximum(0,I1 - theta_E_default) )
         E2 = E02 + delta_t*(1/tau_E)*( -E02 + np.maximum(0,I2 - theta_E_default) )
 
-        P1 = P01 + delta_t*(1/tau_P)*( -P01 + w_PE11 @ E01 + w_PE12 @ E02 - w_PS11 @ S01 - w_PS12 @ S02 - w_PP11 @ P01 - w_PP12 @ P02 + x_P + stimulus + noise_P1[:,step])
+        P1 = P01 + delta_t*(1/tau_P)*( -P01 + w_PE11 @ E01 + w_PE12 @ E02 - w_PS11 @ S01 - w_PS12 @ S02 - w_PP11 @ P01 - w_PP12 @ P02 + x_P + .25*stimulus + noise_P1[:,step])
         P2 = P02 + delta_t*(1/tau_P)*( -P02 + w_PE21 @ E01 + w_PE22 @ E02 - w_PS21 @ S01 - w_PS22 @ S02 - w_PP21 @ P01 - w_PP22 @ P02 + x_P + noise_P2[:,step])
 
         S1 = S01 + delta_t*(1/tau_S)*( -S01 + w_SE11 @ E01 + w_SE12 @ E02 + x_S  + noise_S1[:,step])
@@ -260,13 +260,13 @@ def model_2D_plasticity_scaling(delta_t,vars,initial_values,t,num_neurons,weight
         theta_E1 = theta_E1 + BCM_mask*delta_t * (1 / tau_theta) * (E01 - theta_E1)
         theta_E2 = theta_E2 + BCM_mask*delta_t * (1 / tau_theta) * (E02 - theta_E2)
 
-        theta_E1[theta_E1 == 0] = 1e-323; theta_E2[theta_E2 == 0] = 1e-323 # in order to avoid zero division
-        E01[E01 == 0] = 1e-323; E02[E02 == 0] = 1e-323 # in order to avoid zero division
+        # in order to avoid zero division
+        theta_E1[theta_E1 == 0] = 1e-323; theta_E2[theta_E2 == 0] = 1e-323
+        E01[E01 == 0] = 1e-323; E02[E02 == 0] = 1e-323
 
-        round_array(E01 - theta_E1, 2, dif_E1)
-        round_array(E02 - theta_E2, 2, dif_E2)
-        round_array(E01 / theta_E1, 2, ratio_E1)
-        round_array(E02 / theta_E2, 2, ratio_E2)
+        # round the plasticity mechanisms to activate the plasticity when there is significant change
+        round_array(E01 - theta_E1, 2, dif_E1); round_array(E02 - theta_E2, 2, dif_E2)
+        round_array(E01 / theta_E1, 2, ratio_E1); round_array(E02 / theta_E2, 2, ratio_E2)
 
         EE11 = EE110 + heb_plas_mask*delta_t*(1 / tau_plas) * dif_E1.reshape(N_PC,1) @ E01.reshape(1,N_PC) + exc_scal_mask*delta_t*(1/tau_scaling) * (EE110.T * (1 - ratio_E1)).T
         EE12 = EE120 + heb_plas_mask*delta_t*(1 / tau_plas) * dif_E1.reshape(N_PC,1) @ E02.reshape(1,N_PC) + exc_scal_mask*delta_t*(1/tau_scaling) * (EE120.T * (1 - ratio_E1)).T
@@ -293,15 +293,17 @@ def model_2D_plasticity_scaling(delta_t,vars,initial_values,t,num_neurons,weight
             print("e1->s", delta_t * (1 / tau_I) * np.mean(w_SE11 @ E01))
             print("e2->s", delta_t * (1 / tau_I) * np.mean(w_SE22 @ E02))"""
 
-        # ratesand weights are provided to go below 0
+        # rates and plasticity thresholds cannot go below 0
         E1[E1 < 0] = 0; E2[E2 < 0] = 0; P1[P1 < 0] = 0; P2[P2 < 0] = 0; S1[S1 < 0] = 0; S2[S2 < 0] = 0
+        theta_E1[theta_E1 < 0] = 0; theta_E2[theta_E2 < 0] = 0
+
+        # hard bounds are applied to the weights
         EE11 = apply_hard_bound(EE11,0,upper_bound);EE12 = apply_hard_bound(EE12,0,upper_bound)
         EE21 = apply_hard_bound(EE21,0,upper_bound);EE22 = apply_hard_bound(EE22,0,upper_bound)
         EP11 = apply_hard_bound(EP11,0,upper_bound);EP12 = apply_hard_bound(EP12,0,upper_bound)
         EP21 = apply_hard_bound(EP21,0,upper_bound);EP22 = apply_hard_bound(EP22,0,upper_bound)
         ES11 = apply_hard_bound(ES11,0,upper_bound);ES12 = apply_hard_bound(ES12,0,upper_bound)
         ES21 = apply_hard_bound(ES21,0,upper_bound);ES22 = apply_hard_bound(ES22,0,upper_bound)
-        theta_E1[theta_E1 < 0] = 0; theta_E2[theta_E2 < 0] = 0
 
         # placeholder parameters are freed
         E01 = E1; E02 = E2; P01 = P1; P02 = P2; S01 = S1; S02 = S2
