@@ -20,7 +20,7 @@ def connection_probability(weights, probability, strength):
     print("calculated as ", np.count_nonzero(weights)/num_elements)"""
     return weights*strength
 
-def show_plot_2D(rE1, rE2, rP1, rP2, rS1, rS2, t, stim_time, delta_t, title = None, save_figure=None, name=None):
+def show_plot_2D(rE1, rE2, rP1, rP2, rS1, rS2, t, stim_start, stim_stop, delta_t, title = None, save_figure=None, name=None):
     ratio = .6
     figure_len, figure_width = 15 * ratio, 12 * ratio
     font_size_1, font_size_2 = 36 * ratio, 36 * ratio
@@ -40,8 +40,10 @@ def show_plot_2D(rE1, rE2, rP1, rP2, rS1, rS2, t, stim_time, delta_t, title = No
         ax.spines[axis].set_linewidth(line_width)
     plt.tick_params(width=line_width, length=tick_len)
     # plt.yscale('symlog', linthreshy=0.1) # linthreshy throw an error, ignored since plot does not diverge to inf
-    plt.axvline(x=stim_time, color='r', label='Stimulus', linestyle='dashed')
-    stim_time = int(stim_time*(1/delta_t))
+    # plt.axvline(x=stim_time, color='r', label='Stimulus', linestyle='dashed')
+
+    plt.axvspan(stim_start, stim_stop, color='red', alpha=0.5, label="Stimulus")
+    stim_time = int(stim_start*(1/delta_t))
     plt.plot(t[:], rE1[:], 'xkcd:green', label='PC1, base:'
         + str(np.round(np.mean(rE1[stim_time - 200:stim_time]), 3)) + 'Hz, s.s. after stimulus:'
         + str(np.round(np.mean(rE1[-200:]), 3)), linestyle='dashed',linewidth=plot_line_width)
@@ -321,6 +323,7 @@ def create_save_weights_2D(N_PC,N_PV,N_SOM,weight_strengths,weight_probabilities
     else:
         return (w_DE11, w_DE12, w_DS11, w_EP11, w_PE11, w_SE11, w_PS11, w_PP11, w_DS12, w_EP12, w_PE12, w_SE12, w_PS12, w_PP12,
                  w_DE22, w_DE21, w_DS21, w_EP21, w_PE21, w_SE21, w_PS21, w_PP21, w_DS22, w_EP22, w_PE22, w_SE22, w_PS22, w_PP22)
+
 def show_weights(weights):
     names = ["w_DE11", "w_DE12", "w_DS11", "w_EP11", "w_PE11", "w_SE11", "w_PS11", "w_PP11", "w_DS12", "w_EP12", "w_PE12", "w_SE12", "w_PS12", "w_PP12",
              "w_DE22", "w_DE21", "w_DS21", "w_EP21", "w_PE21", "w_SE21", "w_PS21", "w_PP21", "w_DS22", "w_EP22", "w_PE22", "w_SE22", "w_PS22", "w_PP22"]
