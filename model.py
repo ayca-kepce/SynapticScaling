@@ -14,299 +14,203 @@ from numba import cuda, jit
 import matplotlib.pyplot as plt
 from util import *
 
-
-#@jit(nopython=True)
-def model_2PC(delta_t,vars,t,num_neurons,weights,noises,back_inputs,stimulus,taus,exc_params,flags):
-    (rE1, rE2, rP, rS) = vars
-    (N_PC, N_PV, N_SOM) = num_neurons
-    (w_DE1, w_DE12, w_DS1, w_EP1, w_PE1, w_SE1, w_DE2, w_DE21, w_DS2, w_EP2, w_PE2, w_SE2, w_PS, w_PP) = weights
-    (noise_E1,noise_E2,noise_P,noise_S) = noises
-    (x_E, x_D, x_P, x_S) = back_inputs
-    (tau_E, tau_I) = taus
-    (theta, lambda_D, lambda_E) = exc_params
-    (plasticity, synaptic_scaling) = flags
-
-    np.random.seed(124)
-    # setting up initial conditions
-    E01 = np.random.rand(N_PC)
-    E02 = np.random.rand(N_PC)
-    P0 = np.random.rand(N_PV)
-    S0 = np.random.rand(N_SOM)
-
-    step = 0
-    for i in t:
-        # averages are calculated
-        rE1[step] = np.mean(E01)
-        rE2[step] = np.mean(E02)
-        rP[step] = np.mean(P0)
-        rS[step] = np.mean(S0)
-
-        I_E1 = x_E - w_EP1 @ P0
-        I_D1 = x_D - w_DS1 @ S0 + w_DE1 @ E01 + w_DE12 @ E02 + noise_E1[:,step] + stimulus[step]
-        I1 = lambda_D*I_D1 + (1-lambda_E)*I_E1
-
-        I_E2 = x_E - w_EP2 @ P0
-        I_D2 = x_D - w_DS2 @ S0 + w_DE2 @ E02 + w_DE21 @ E01 + noise_E2[:,step]
-        I2 = lambda_D*I_D2 + (1-lambda_E)*I_E2
-
-        """term00 = delta_t * (1 / tau_E) * np.mean(-E01)
-        term01 = delta_t * (1 / tau_E) * np.mean(np.maximum(0, I1 - theta))
-        term02 = delta_t * (1 / tau_E) * stimulus[step]
-        #terms_sum1 = np.sum(term00 + term01 + term02)"""
-        E1 = E01 + delta_t*(1/tau_E)*( -E01 + np.maximum(0,I1 - theta))
-
-        """term03 = delta_t * (1 / tau_E) * np.mean(-E02)
-        term04 = delta_t * (1 / tau_E) * np.mean(np.maximum(0, I2 - theta))
-        term05 = delta_t * (1 / tau_E) * np.mean(noise_E2[:,step])
-        #terms_sum2 = np.sum(term03 + term04 + term05)"""
-        E2 = E02 + delta_t*(1/tau_E)*( -E02 + np.maximum(0,I2 - theta))
-
-        """term06 = delta_t * (1 / tau_I) * np.mean(w_PE1@ E01)
-        term07 = delta_t * (1 / tau_I) * np.mean(w_PE1@ E02)
-        term08 = delta_t * (1 / tau_I) * np.mean(-w_PS@ S0)
-        term09 = delta_t * (1 / tau_I) * np.mean(-w_PP@ P0)
-        term10 = delta_t * (1 / tau_I) * np.mean(x_P)
-        #terms_sum3 = np.sum(term06 + term07 + term08 + term09 + term10)"""
-        P = P0 + delta_t*(1/tau_I)*( -P0 + w_PE1 @ E01 + w_PE2 @ E02 - w_PS @ S0 - w_PP @ P0 + x_P + stimulus[step] + noise_P[:,step])
-
-        """term11 = delta_t * (1 / tau_I) * np.mean(-S0)
-        term12 = delta_t * (1 / tau_I) * np.mean(w_SE1@ E01)
-        term13 = delta_t * (1 / tau_I) * np.mean(w_SE2@ E02)
-        term14 = delta_t * (1 / tau_I) * np.mean(x_S)
-        term15 = delta_t * (1 / tau_I) * np.mean(noise_S[:,step])
-        #terms_sum4 = np.sum(term11 + term12 + term13 + term14 + term15)"""
-        S = S0 + delta_t*(1/tau_I)*( -S0 + w_SE1 @ E01 + w_SE2 @ E02 + x_S  + noise_S[:,step])
-
-        if not np.mod(step, 10000):
-            print("I1", delta_t * (1 / tau_E) * np.mean(np.maximum(0, I1 - theta)))
-            print("I2", delta_t * (1 / tau_E) * np.mean(np.maximum(0, I2 - theta)))
-            print("e1->p", delta_t * (1 / tau_I) * np.mean(w_PE1@ E01))
-            print("e2->p", delta_t * (1 / tau_I) * np.mean(w_PE1@ E02))
-            print("s->p",  delta_t * (1 / tau_I) * np.mean(-w_PS@ S0))
-            print("p->p", delta_t * (1 / tau_I) * np.mean(-w_PP@ P0))
-            print("e1->s", delta_t * (1 / tau_I) * np.mean(w_SE1@ E01))
-            print("e2->s", delta_t * (1 / tau_I) * np.mean(w_SE2@ E02))
-
-        E1[E1 < 0] = 0
-        E2[E2 < 0] = 0
-        P[P < 0] = 0
-        S[S < 0] = 0
-
-        # placeholder parameters are freed
-        E01 = E1
-        E02 = E2
-        P0 = P
-        S0 = S
-
-        # counter is updated
-        step=step+1
-
-
-#@jit(nopython=True)
-def model_2D(delta_t,vars,t,num_neurons,weights,noises,back_inputs,stimulus,stim_start,taus,exc_params,indv_neurons=None,flag_save_rates=0):
-    (rE1, rE2, rP1, rP2, rS1, rS2) = vars
-    (N_PC, N_PV, N_SOM) = num_neurons
-    (w_DE11, w_DE12, w_DS11, w_EP11, w_PE11, w_SE11, w_PS11, w_PP11, w_DS12, w_EP12, w_PE12, w_SE12, w_PS12, w_PP12,
-     w_DE22, w_DE21, w_DS21, w_EP21, w_PE21, w_SE21, w_PS21, w_PP21, w_DS22, w_EP22, w_PE22, w_SE22, w_PS22, w_PP22) = weights
-    (noise_E1,noise_E2,noise_P1,noise_P2,noise_S1,noise_S2) = noises
-    (x_E, x_D, x_P, x_S) = back_inputs
-    (tau_E, tau_P, tau_S) = taus
-    (theta, lambda_D, lambda_E) = exc_params
-
-    np.random.seed(124)
-    # setting up initial conditions
-    E01 = np.random.rand(N_PC); E02 = np.random.rand(N_PC);
-    P01 = np.random.rand(N_PV); P02 = np.random.rand(N_PV);
-    S01 = np.random.rand(N_SOM); S02 = np.random.rand(N_SOM)
-
-    step = 0
-    for i in t:
-        # averages are calculated
-        rE1[step] = np.mean(E01); rE2[step] = np.mean(E02); rP1[step] = np.mean(P01); rP2[step] = np.mean(P02); rS1[step] = np.mean(S01); rS2[step] = np.mean(S02)
-
-        """indv_neurons[:20,step] = E01[:20]
-        indv_neurons[20:40,step] = E02[:20]"""
-
-        I_E1 = x_E - w_EP11 @ P01 - w_EP12 @ P02
-        I_D1 = x_D - w_DS11 @ S01 - w_DS12 @ S02 + w_DE11 @ E01 + w_DE12 @ E02 + noise_E1[:,step] + stimulus[step]
-        I1 = lambda_D*I_D1 + (1-lambda_E)*I_E1
-
-        I_E2 = x_E - w_EP21 @ P01 - w_EP22 @ P02
-        I_D2 = x_D - w_DS21 @ S01 - w_DS22 @ S02 + w_DE22 @ E02 + w_DE21 @ E01 + noise_E2[:,step]
-        I2 = lambda_D*I_D2 + (1-lambda_E)*I_E2
-
-        E1 = E01 + delta_t*(1/tau_E)*( -E01 + np.maximum(0,I1 - theta) )
-        E2 = E02 + delta_t*(1/tau_E)*( -E02 + np.maximum(0,I2 - theta) )
-
-        P1 = P01 + delta_t*(1/tau_P)*( -P01 + w_PE11 @ E01 + w_PE12 @ E02 - w_PS11 @ S01 - w_PS12 @ S02 - w_PP11 @ P01 - w_PP12 @ P02 + x_P + stimulus[step] + noise_P1[:,step])
-        P2 = P02 + delta_t*(1/tau_P)*( -P02 + w_PE21 @ E01 + w_PE22 @ E02 - w_PS21 @ S01 - w_PS22 @ S02 - w_PP21 @ P01 - w_PP22 @ P02 + x_P + stimulus[step] + noise_P2[:,step])
-
-        S1 = S01 + delta_t*(1/tau_S)*( -S01 + w_SE11 @ E01 + w_SE12 @ E02 + x_S  + noise_S1[:,step])
-        S2 = S02 + delta_t*(1/tau_S)*( -S02 + w_SE21 @ E01 + w_SE22 @ E02 + x_S  + noise_S2[:,step])
-
-        """if not np.mod(step, 10000):
-            print("I1", delta_t * (1 / tau_E) * np.mean(np.maximum(0, I1 - theta)))
-            print("I2", delta_t * (1 / tau_E) * np.mean(np.maximum(0, I2 - theta)))
-            print("e1->p", delta_t * (1 / tau_I) * np.mean(w_PE11 @ E01))
-            print("e2->p", delta_t * (1 / tau_I) * np.mean(w_PE12 @ E02))
-            print("s->p", delta_t * (1 / tau_I) * np.mean(-w_PS11 @ S01))
-            print("p->p", delta_t * (1 / tau_I) * np.mean(-w_PP11 @ P01))
-            print("e1->s", delta_t * (1 / tau_I) * np.mean(w_SE11 @ E01))
-            print("e2->s", delta_t * (1 / tau_I) * np.mean(w_SE22 @ E02))"""
-
-        # limit rates to go below 0
-        E1[E1 < 0] = 0; E2[E2 < 0] = 0; P1[P1 < 0] = 0; P2[P2 < 0] = 0; S1[S1 < 0] = 0; S2[S2 < 0] = 0
-        # placeholder parameters are freed
-        E01 = E1; E02 = E2; P01 = P1; P02 = P2; S01 = S1; S02 = S2
-        # counter is updated
-        step=step+1
-
-    if flag_save_rates:
-        if np.max(stimulus) != 0:
-            print("The average rates can only be calculated without the stimulus.")
-            #quit()
-        E1[E1 == 0] = 1e-20
-        E2[E2 == 0] = 1e-20
-        P1[P1 == 0] = 1e-20
-        P2[P2 == 0] = 1e-20
-        S1[S1 == 0] = 1e-20
-        S2[S2 == 0] = 1e-20
-        pickle.dump((E1, E2, P1, P2, S1, S2, theta), open(r'params\average_rates_2D.pkl', 'wb'))
-
-
-
+#@jit((float16[:], float16[:], float16[:], float16[:], int16, float[:]),nopython=True)
 @jit(nopython=True)
-def model_2D_plasticity_scaling(delta_t, vars, initial_values,t, num_neurons, weights, back_inputs,
-                                stim_strength, stim_start, stim_stop, taus, lambdas, rheobases, upper_bound,
-                                BCM_p=1, flags=(0,0,0)):
-    (rE1, rE2, rP1, rP2, rS1, rS2,
-     J_EE11, J_EE12, J_EE21, J_EE22,
-     J_EP11, J_EP12, J_EP21, J_EP22,
-     J_ES11, J_ES12, J_ES21, J_ES22,
-     av_theta_E1, av_theta_E2,
-     hebb11,ss_EE11,hebb21,ss_EE21,ss_EP21,ss_ES21) = vars
+def model_plasticity_based_on_current_all_mass(delta_t, vars, plas_terms,t, weights, back_inputs,
+                                stim_strengths, stim_start, stim_stop, taus, lambdas, rheobases, upper_bounds,
+                                learning_rates, adaptive_LR_method = "sum", synaptic_scaling_method = "subtractive",
+                                synaptic_scaling_update_method = "every_timestep", synaptic_scaling_compare_method = "individual",
+                                BCM_p=1, beta_ss=1, flags=(0,0,0,0,0)):
+    (rE1, rE2, rP1, rP2, rS1, rS2, av_I1, av_I2,
+     J_EE11, J_EE12, J_EE21, J_EE22, J_EP11, J_EP12, J_EP21, J_EP22, J_ES11, J_ES12, J_ES21, J_ES22) = vars
+    (hebEE11, hebEE12, hebEE21, hebEE22,
+     ss1_list, ss2_list, av_theta_I1, av_theta_I2,
+     LR_EE11,LR_EE12,LR_EE21,LR_EE22) = plas_terms
+    theta_I1,theta_I2 = 1,1
+    (LR_E01,LR_E02) = learning_rates
+    learning_rate_EE11,learning_rate_EE12,learning_rate_EE21,learning_rate_EE22=LR_E01,LR_E02,LR_E01,LR_E02
 
-    (N_PC, N_PV, N_SOM) = num_neurons
-    (_, _, _, _, w_PE11, w_SE11, w_PS11, w_PP11, _, _, w_PE12, w_SE12, w_PS12, w_PP12,
-     _, _, _, _, w_PE21, w_SE21, w_PS21, w_PP21, _, _, w_PE22, w_SE22, w_PS22, w_PP22) = weights
-
-    (x_E, x_D, x_P, x_S) = back_inputs
-    (tau_E, tau_P, tau_S, tau_plas, tau_scaling, tau_theta) = taus
-    (lambda_D, lambda_E) = lambdas
+    (w_EE11, w_EE12, w_DE11, w_DE12, w_DS11, w_EP11, w_PE11, w_SE11, w_PS11, w_PP11, w_DS12, w_EP12, w_PE12, w_SE12, w_PS12, w_PP12,
+     w_EE22, w_EE21, w_DE22, w_DE21, w_DS21, w_EP21, w_PE21, w_SE21, w_PS21, w_PP21, w_DS22, w_EP22, w_PE22, w_SE22, w_PS22, w_PP22) = weights
+    (x_E, x_P, x_S) = back_inputs
+    (stim_strength_E,stim_strength_P) = stim_strengths
+    (tau_E, tau_P, tau_S, tau_plas, tau_scaling, tau_theta, tau_LR) = taus
     (rheobase_E,rheobase_P,rheobase_S) = rheobases
-    theta_E1 = np.ones(N_PC);theta_E2 = np.ones(N_PC)
-    (hebbian_plasticity_flag, exc_scaling_flag, inh_scaling_flag, BCM_flag)= flags
+    (upper_bound_E, upper_bound_P, upper_bound_S) = upper_bounds
 
-    np.random.seed(124)
+    (hebbian_plasticity_flag, exc_scaling_flag, inh_scaling_flag,
+     adaptive_threshold_flag, adaptive_LR_flag)= flags
+
     # setting up initial conditions
-    (E01, E02, P01, P02, S01, S02,
-     EE110, EE120, EE210, EE220,
-     EP110, EP120, EP210, EP220,
-     ES110, ES120, ES210, ES220) = initial_values
+    E01, E02, P01, P02, S01, S02 = 1,1,1,1,1,1
+    EE110, EE120, EE210, EE220 = w_EE11, w_EE12, w_EE21, w_EE22
+    EP110, EP120, EP210, EP220 = w_EP11, w_EP12, w_EP21, w_EP22
+    ES110, ES120, ES210, ES220 = w_DS11, w_DS12, w_DS21, w_DS22
+    E1, E2 = 0,0
+    stimulus_E, stimulus_P = 0, 0
+    heb_plas_mask = 0; exc_scal_mask = 0; inh_scal_mask = 0; adaptive_threshold_mask = 0; adaptive_LR_mask = 0
 
-    stimulus = 0
-    heb_plas_mask = 0
-    exc_scal_mask = 0
-    inh_scal_mask = 0
-    BCM_mask = 0
-    dif_E1 = np.zeros(N_PC); dif_E2 = np.zeros(N_PC); ratio_E1 = np.ones(N_PC); ratio_E2 = np.ones(N_PC)
+    heb_term_EE11, heb_term_EE12, heb_term_EE21, heb_term_EE22 = 0, 0, 0, 0
+    initial_sum_of_EE_weights = w_EE11+w_EE12+w_EE21+w_EE22
+
+    flag_every_timestep = 0
+    flag_threshold_exceeded = 0
+    flag_at_every_x_second = 0
 
     step = 0
     for i in t:
-        # averages are calculated
-        rE1[step] = np.mean(E01); rE2[step] = np.mean(E02); rP1[step] = np.mean(P01); rP2[step] = np.mean(P02); rS1[step] = np.mean(S01); rS2[step] = np.mean(S02)
-        hebb11[step] = np.mean(heb_plas_mask*delta_t*(1 / tau_plas) * dif_E1.reshape(N_PC,1) @ E01.reshape(1,N_PC))
-        ss_EE11[step] = np.mean(exc_scal_mask*delta_t*(1/tau_scaling) * (EE110.T * (1 - ratio_E1)).T)
-        hebb21[step] = np.mean(heb_plas_mask*delta_t*(1 / tau_plas) * dif_E2.reshape(N_PC,1) @ E01.reshape(1,N_PC))
-        ss_EE21[step] = np.mean(exc_scal_mask*delta_t*(1/tau_scaling) * (EE210.T * (1 - ratio_E2)).T)
-        ss_EP21[step] = np.mean(- inh_scal_mask*delta_t*(1 / tau_scaling) * (EP210.T * (1 - ratio_E2)).T)
-        ss_ES21[step] = np.mean(inh_scal_mask*delta_t*(1 / tau_scaling) * (ES210.T * (1 - ratio_E2)).T)
-
-        J_EE11[step] = np.mean(EE110); J_EE12[step] = np.mean(EE120); J_EE21[step] = np.mean(EE210); J_EE22[step] = np.mean(EE220)
-        J_EP11[step] = np.mean(EP110); J_EP12[step] = np.mean(EP120); J_EP21[step] = np.mean(EP210); J_EP22[step] = np.mean(EP220)
-        J_ES11[step] = np.mean(ES110); J_ES12[step] = np.mean(ES120); J_ES21[step] = np.mean(ES210); J_ES22[step] = np.mean(ES220)
-        av_theta_E1[step] = np.mean(theta_E1); av_theta_E2[step] = np.mean(theta_E2)
 
         # the initial condition of the pasticity threshold is defined right before the stimulus, when the system is at steady state
         if step == int(stim_start * (1 / delta_t)):
-            (theta_E1, theta_E2) = (E01,E02)
+            (theta_I1, theta_I2) = (E1,E2)
+            if synaptic_scaling_update_method == "every_timestep":
+                flag_every_timestep = 1
+            elif synaptic_scaling_update_method == "threshold_exceeded":
+                flag_threshold_exceeded = 1
+            elif synaptic_scaling_update_method == "at_every_x_second":
+                flag_at_every_x_second = 1
             heb_plas_mask = hebbian_plasticity_flag
             exc_scal_mask = exc_scaling_flag
             inh_scal_mask = inh_scaling_flag
-            BCM_mask = (heb_plas_mask or exc_scal_mask or inh_scal_mask) and BCM_flag
-            stimulus = stim_strength
+            adaptive_threshold_mask = (heb_plas_mask or exc_scal_mask or inh_scal_mask) and adaptive_threshold_flag
+            adaptive_LR_mask = heb_plas_mask and adaptive_LR_flag
+            stimulus_E = stim_strength_E
+            stimulus_P = stim_strength_P
+            print("Stimulus started.")
         elif step == int(stim_stop * (1 / delta_t)):
-            stimulus = 0
+            stimulus_E, stimulus_P = 0, 0
+            print("Stimulus ended.")
 
-        """indv_neurons[:20,step] = E01[:20]
-        indv_neurons[20:40,step] = E02[:20]"""
+        #if step > int(stim_start * (1 / delta_t))-5:
+            #breakpoint()
 
-        I_E1 = x_E - EP110 @ P01 - EP120 @ P02 + stimulus
-        I_D1 = x_D - ES110 @ S01 - ES120 @ S02 + EE110 @ E01 + EE120 @ E02
-        I1 = lambda_D*I_D1 + (1-lambda_E)*I_E1
-
-        I_E2 = x_E - EP210 @ P01 - EP220 @ P02
-        I_D2 = x_D - ES210 @ S01 - ES220 @ S02 + EE220 @ E02 + EE210 @ E01
-        I2 = lambda_D*I_D2 + (1-lambda_E)*I_E2
+        I1 = x_E - EP110 * P01 - EP120 * P02 - ES110 * S01 - ES120 * S02 + EE110 * E01 + EE120 * E02 + stimulus_E
+        I2 = x_E - EP210 * P01 - EP220 * P02 - ES210 * S01 - ES220 * S02 + EE210 * E01 + EE220 * E02
 
         E1 = E01 + delta_t*(1/tau_E)*( -E01 + np.maximum(0,I1 - rheobase_E) )
         E2 = E02 + delta_t*(1/tau_E)*( -E02 + np.maximum(0,I2 - rheobase_E) )
 
-        P1 = P01 + delta_t*(1/tau_P)*( -P01 + np.maximum(0, w_PE11 @ E01 + w_PE12 @ E02 - w_PS11 @ S01 - w_PS12 @ S02 - w_PP11 @ P01 - w_PP12 @ P02 + x_P + .25*stimulus - rheobase_P))
-        P2 = P02 + delta_t*(1/tau_P)*( -P02 + np.maximum(0, w_PE21 @ E01 + w_PE22 @ E02 - w_PS21 @ S01 - w_PS22 @ S02 - w_PP21 @ P01 - w_PP22 @ P02 + x_P - rheobase_P))
+        P1 = P01 + delta_t*(1/tau_P)*( -P01 + np.maximum(0, w_PE11 * E01 + w_PE12 * E02 - w_PS11 * S01 - w_PS12 * S02 - w_PP11 * P01 - w_PP12 * P02 + x_P - rheobase_P + stimulus_P))
+        P2 = P02 + delta_t*(1/tau_P)*( -P02 + np.maximum(0, w_PE21 * E01 + w_PE22 * E02 - w_PS21 * S01 - w_PS22 * S02 - w_PP21 * P01 - w_PP22 * P02 + x_P - rheobase_P))
 
-        S1 = S01 + delta_t*(1/tau_S)*( -S01 + np.maximum(0, w_SE11 @ E01 + w_SE12 @ E02 + x_S  - rheobase_S))
-        S2 = S02 + delta_t*(1/tau_S)*( -S02 + np.maximum(0, w_SE21 @ E01 + w_SE22 @ E02 + x_S  - rheobase_S))
+        S1 = S01 + delta_t*(1/tau_S)*( -S01 + np.maximum(0, w_SE11 * E01 + w_SE12 * E02 + x_S - rheobase_S))
+        S2 = S02 + delta_t*(1/tau_S)*( -S02 + np.maximum(0, w_SE21 * E01 + w_SE22 * E02 + x_S - rheobase_S))
 
-        theta_E1 = theta_E1 + BCM_mask*delta_t * (1 / tau_theta) * (np.power(E01,BCM_p) - theta_E1)
-        theta_E2 = theta_E2 + BCM_mask*delta_t * (1 / tau_theta) * (np.power(E02,BCM_p) - theta_E2)
+        theta_I1 = theta_I1 + adaptive_threshold_mask*delta_t * (1 / tau_theta) * (E1**BCM_p - theta_I1)
+        theta_I2 = theta_I2 + adaptive_threshold_mask*delta_t * (1 / tau_theta) * (E2**BCM_p - theta_I2)
 
-        # in order to avoid zero division
-        theta_E1[theta_E1 == 0] = 1e-323; theta_E2[theta_E2 == 0] = 1e-323
-        E01[E01 == 0] = 1e-323; E02[E02 == 0] = 1e-323
+        # rates and plasticity thresholds cannot go below 0 (exc ones cannot go below 1e-323, in order to avoid zero division)
+        theta_I1=max(theta_I1,1e-323); theta_I2=max(theta_I2, 1e-323)
+        E1=max(E1, 1e-323); E2=max(E2, 1e-323); P1 = max(0, P1); P2 = max(0, P2); S1 = max(0, S1); S2 = max(0, S2)
 
-        # round the plasticity mechanisms to activate the plasticity when there is significant change
-        """round_array(E01 - theta_E1, 2, dif_E1); round_array(E02 - theta_E2, 2, dif_E2)
-        E1[E1 < 0] = 0; ratio_E2[ratio_E2 < 0] = 0"""
-        dif_E1 = E01 - theta_E1; dif_E2 = E02 - theta_E2
-        ratio_E1 = E01 / theta_E1; ratio_E2 = E02 / theta_E2
+        if heb_plas_mask:
+            heb_term_EE11 = learning_rate_EE11 * delta_t * (1 / tau_plas) * ((E1 - theta_I1) * E1)
+            heb_term_EE12 = learning_rate_EE12 * delta_t * (1 / tau_plas) * ((E1 - theta_I1) * E2)
+            heb_term_EE21 = learning_rate_EE21 * delta_t * (1 / tau_plas) * ((E2 - theta_I2) * E1)
+            heb_term_EE22 = learning_rate_EE22 * delta_t * (1 / tau_plas) * ((E2 - theta_I2) * E2)
 
-        EE11 = EE110 + heb_plas_mask*delta_t*(1 / tau_plas) * dif_E1.reshape(N_PC,1) @ E01.reshape(1,N_PC) + exc_scal_mask*delta_t*(1/tau_scaling) * (EE110.T * (1 - ratio_E1)).T
-        EE12 = EE120 + heb_plas_mask*delta_t*(1 / tau_plas) * dif_E1.reshape(N_PC,1) @ E02.reshape(1,N_PC) + exc_scal_mask*delta_t*(1/tau_scaling) * (EE120.T * (1 - ratio_E1)).T
-        EE21 = EE210 + heb_plas_mask*delta_t*(1 / tau_plas) * dif_E2.reshape(N_PC,1) @ E01.reshape(1,N_PC) + exc_scal_mask*delta_t*(1/tau_scaling) * (EE210.T * (1 - ratio_E2)).T
-        EE22 = EE220 + heb_plas_mask*delta_t*(1 / tau_plas) * dif_E2.reshape(N_PC,1) @ E02.reshape(1,N_PC) + exc_scal_mask*delta_t*(1/tau_scaling) * (EE220.T * (1 - ratio_E2)).T
+        sum_of_EE_weights = EE110+EE120+EE210+EE220
+        apply_ss = ((sum_of_EE_weights > initial_sum_of_EE_weights * (1 + beta_ss)) or
+                    (sum_of_EE_weights < initial_sum_of_EE_weights * (1 - beta_ss)))
 
-        EP11 = EP110 - inh_scal_mask*delta_t*(1 / tau_scaling) * (EP110.T * (1 - ratio_E1)).T
-        EP12 = EP120 - inh_scal_mask*delta_t*(1 / tau_scaling) * (EP120.T * (1 - ratio_E1)).T
-        EP21 = EP210 - inh_scal_mask*delta_t*(1 / tau_scaling) * (EP210.T * (1 - ratio_E2)).T
-        EP22 = EP220 - inh_scal_mask*delta_t*(1 / tau_scaling) * (EP220.T * (1 - ratio_E2)).T
+        if synaptic_scaling_compare_method == "individual":
+            dif_E1   = E1 - theta_I1; dif_E2   = E2 - theta_I2
+            ratio_E1 = E1 / theta_I1; ratio_E2 = E2 / theta_I2
+        elif synaptic_scaling_compare_method == "all":
+            dif_E1 = sum_of_EE_weights - initial_sum_of_EE_weights; ratio_E1 = sum_of_EE_weights/initial_sum_of_EE_weights
+            dif_E2 = sum_of_EE_weights - initial_sum_of_EE_weights; ratio_E2 = sum_of_EE_weights/initial_sum_of_EE_weights
 
-        ES11 = ES110 + inh_scal_mask*delta_t*(1 / tau_scaling) * (ES110.T * (1 - ratio_E1)).T
-        ES12 = ES120 + inh_scal_mask*delta_t*(1 / tau_scaling) * (ES120.T * (1 - ratio_E1)).T
-        ES21 = ES210 + inh_scal_mask*delta_t*(1 / tau_scaling) * (ES210.T * (1 - ratio_E2)).T
-        ES22 = ES220 + inh_scal_mask*delta_t*(1 / tau_scaling) * (ES220.T * (1 - ratio_E2)).T
+        if synaptic_scaling_method == "multiplicative":
+            if (flag_every_timestep or (flag_threshold_exceeded and apply_ss)):  # or (flag_at_every_x_second and not np.mod(i,1000))):
+                ss1 = exc_scal_mask*delta_t * (1 / tau_scaling) * (1 - ratio_E1**3)
+                ss2 = exc_scal_mask*delta_t * (1 / tau_scaling) * (1 - ratio_E2**3)
+            else:
+                ss1, ss2 = 0, 0
 
-        """if not np.mod(step, 10000):
-            print("I1", delta_t * (1 / tau_E) * np.mean(np.maximum(0, I1 - theta)))
-            print("I2", delta_t * (1 / tau_E) * np.mean(np.maximum(0, I2 - theta)))
-            print("e1->p", delta_t * (1 / tau_I) * np.mean(w_PE11 @ E01))
-            print("e2->p", delta_t * (1 / tau_I) * np.mean(w_PE12 @ E02))
-            print("s->p", delta_t * (1 / tau_I) * np.mean(-w_PS11 @ S01))
-            print("p->p", delta_t * (1 / tau_I) * np.mean(-w_PP11 @ P01))
-            print("e1->s", delta_t * (1 / tau_I) * np.mean(w_SE11 @ E01))
-            print("e2->s", delta_t * (1 / tau_I) * np.mean(w_SE22 @ E02))"""
+            EE110 = (1+ss1)*EE110
+            EE120 = (1+ss1)*EE120
+            EE210 = (1+ss2)*EE210
+            EE220 = (1+ss2)*EE220
 
-        # rates and plasticity thresholds cannot go below 0
-        E1[E1 < 0] = 0; E2[E2 < 0] = 0; P1[P1 < 0] = 0; P2[P2 < 0] = 0; S1[S1 < 0] = 0; S2[S2 < 0] = 0
-        theta_E1[theta_E1 < 0] = 0; theta_E2[theta_E2 < 0] = 0
+            EP11 = (1-ss1)*EP110
+            EP12 = (1-ss1)*EP120
+            EP21 = (1-ss2)*EP210
+            EP22 = (1-ss2)*EP220
+
+            ES11 = (1+ss1)*ES110
+            ES12 = (1+ss1)*ES120
+            ES21 = (1+ss2)*ES210
+            ES22 = (1+ss2)*ES220
+
+        elif synaptic_scaling_method == "subtractive":
+            if (flag_every_timestep or (flag_threshold_exceeded and apply_ss)):# or (flag_at_every_x_second and not np.mod(i,1000))):
+                ss1 = exc_scal_mask * delta_t * (1 / tau_scaling) * (1 - ratio_E1**3)
+                ss2 = exc_scal_mask * delta_t * (1 / tau_scaling) * (1 - ratio_E2**3)
+            else:
+                ss1, ss2 = 0, 0
+
+            EE110 = EE110 + ss1
+            EE120 = EE120 + ss1
+            EE210 = EE210 + ss2
+            EE220 = EE220 + ss2
+
+            EP11 = EP110 - ss1
+            EP12 = EP120 - ss1
+            EP21 = EP210 - ss2
+            EP22 = EP220 - ss2
+
+            ES11 = ES110 + ss1
+            ES12 = ES120 + ss1
+            ES21 = ES210 + ss2
+            ES22 = ES220 + ss2
+
+        elif synaptic_scaling_method == "subtractive_dif":
+            if (flag_every_timestep or (flag_threshold_exceeded and apply_ss)):# or (flag_at_every_x_second and not np.mod(i,1000))):
+                ss1 = exc_scal_mask * delta_t * (1 / tau_scaling) * dif_E1
+                ss2 = exc_scal_mask * delta_t * (1 / tau_scaling) * dif_E2
+            else:
+                ss1, ss2 = 0, 0
+
+            EE110 = EE110 - ss1
+            EE120 = EE120 - ss1
+            EE210 = EE210 - ss2
+            EE220 = EE220 - ss2
+
+            EP11 = EP110 + ss1
+            EP12 = EP120 + ss1
+            EP21 = EP210 + ss2
+            EP22 = EP220 + ss2
+
+            ES11 = ES110 - ss1
+            ES12 = ES120 - ss1
+            ES21 = ES210 - ss2
+            ES22 = ES220 - ss2
+
+        # in order to have hebbian plasticity in the absence of synaptic scaling, it is defined here
+        EE11 = EE110 + heb_term_EE11
+        EE12 = EE120 + heb_term_EE12
+        EE21 = EE210 + heb_term_EE21
+        EE22 = EE220 + heb_term_EE22
+
+        if adaptive_LR_method == "ode":
+            learning_rate_EE11 = learning_rate_EE11 - adaptive_LR_mask*delta_t * (1 / tau_LR) * heb_term_EE11
+            learning_rate_EE12 = learning_rate_EE12 - adaptive_LR_mask*delta_t * (1 / tau_LR) * heb_term_EE12
+            learning_rate_EE21 = learning_rate_EE21 - adaptive_LR_mask*delta_t * (1 / tau_LR) * heb_term_EE21
+            learning_rate_EE22 = learning_rate_EE22 - adaptive_LR_mask*delta_t * (1 / tau_LR) * heb_term_EE22
+
+        elif ((adaptive_LR_method == "sum") and (adaptive_LR_mask)):
+            learning_rate_EE11 = learning_rate_EE11 / (tau_LR*np.abs(np.mean(hebEE11[step-1000:step]))+1)
+            learning_rate_EE12 = learning_rate_EE12 / (tau_LR*np.abs(np.mean(hebEE12[step-1000:step]))+1)
+            learning_rate_EE21 = learning_rate_EE21 / (tau_LR*np.abs(np.mean(hebEE21[step-1000:step]))+1)
+            learning_rate_EE22 = learning_rate_EE22 / (tau_LR*np.abs(np.mean(hebEE22[step-1000:step]))+1)
 
         # hard bounds are applied to the weights
-        EE11 = apply_hard_bound(EE11,0,upper_bound);EE12 = apply_hard_bound(EE12,0,upper_bound)
-        EE21 = apply_hard_bound(EE21,0,upper_bound);EE22 = apply_hard_bound(EE22,0,upper_bound)
-        EP11 = apply_hard_bound(EP11,0,upper_bound);EP12 = apply_hard_bound(EP12,0,upper_bound)
-        EP21 = apply_hard_bound(EP21,0,upper_bound);EP22 = apply_hard_bound(EP22,0,upper_bound)
-        ES11 = apply_hard_bound(ES11,0,upper_bound);ES12 = apply_hard_bound(ES12,0,upper_bound)
-        ES21 = apply_hard_bound(ES21,0,upper_bound);ES22 = apply_hard_bound(ES22,0,upper_bound)
+        EE11 = max(0,min(EE11,upper_bound_E));EE12 = max(0,min(EE12,upper_bound_E))
+        EE21 = max(0,min(EE21,upper_bound_E));EE22 = max(0,min(EE22,upper_bound_E))
+        EP11 = max(0,min(EP11,upper_bound_P));EP12 = max(0,min(EP12,upper_bound_P))
+        EP21 = max(0,min(EP21,upper_bound_P));EP22 = max(0,min(EP22,upper_bound_P))
+        ES11 = max(0,min(ES11,upper_bound_S));ES12 = max(0,min(ES12,upper_bound_S))
+        ES21 = max(0,min(ES21,upper_bound_S));ES22 = max(0,min(ES22,upper_bound_S))
 
         # placeholder parameters are freed
         E01 = E1; E02 = E2; P01 = P1; P02 = P2; S01 = S1; S02 = S2
@@ -314,7 +218,36 @@ def model_2D_plasticity_scaling(delta_t, vars, initial_values,t, num_neurons, we
         EP110=EP11; EP120=EP12; EP210=EP21; EP220=EP22
         ES110=ES11; ES120=ES12; ES210=ES21; ES220=ES22
 
+        # values are assigned to the lists
+        rE1[step] = E01; rE2[step] = E02; rP1[step] = P01; rP2[step] = P02; rS1[step] = S01; rS2[step] = S02
+        av_I1[step] = I1; av_I2[step] = I2
+        J_EE11[step] = EE110; J_EE12[step] = EE120; J_EE21[step] = EE210; J_EE22[step] = EE220
+        J_EP11[step] = EP110; J_EP12[step] = EP120; J_EP21[step] = EP210; J_EP22[step] = EP220
+        J_ES11[step] = ES110; J_ES12[step] = ES120; J_ES21[step] = ES210; J_ES22[step] = ES220
+        hebEE11[step] = heb_term_EE11; hebEE12[step] = heb_term_EE12; hebEE21[step] = heb_term_EE21; hebEE22[step] = heb_term_EE22
+        ss1_list[step] = ss1; ss2_list[step] = ss2
+        av_theta_I1[step] = theta_I1; av_theta_I2[step] = theta_I2
+        LR_EE11[step] = learning_rate_EE11; LR_EE12[step] = learning_rate_EE12
+        LR_EE21[step] = learning_rate_EE21; LR_EE22[step] = learning_rate_EE22
+
+        """if np.mod(step, 1000)*rE1 > 1e2:
+            print("Break since it goes to infinity.")
+            quit()"""
+
         # counter is updated
         step=step+1
 
-
+    print("E rates", E1, E2)
+    print("weights EE ",EE11,EE12,EE21,EE22)
+    print("weights EP ",EP11,EP12,EP21,EP22)
+    print("weights ES ",ES11,ES12,ES21,ES22)
+    print("ss terms ", np.max(ss1_list), np.min(ss1_list), np.max(ss2_list), np.min(ss2_list), )
+    print("hebb terms ", heb_term_EE11,heb_term_EE12,heb_term_EE21,heb_term_EE22)
+    print("thetas", theta_I1, theta_I2)
+    print("learning rates", learning_rate_EE11,learning_rate_EE12,learning_rate_EE21,learning_rate_EE22)
+    print("theta times", av_theta_I1[int(stim_start*(1/delta_t))],
+          av_theta_I1[int(stim_start*(1/delta_t))+1],
+          av_theta_I1[int(stim_start*(1/delta_t))+2],
+          av_theta_I1[int(stim_start*(1/delta_t))+10],
+          av_theta_I1[int(stim_start*(1/delta_t))+20],
+          av_theta_I1[int(stim_start*(1/delta_t))+60])
