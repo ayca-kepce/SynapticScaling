@@ -1,8 +1,9 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import pickle
-from numba import cuda, jit
-from numba.types import float64, int64
+from numba import cuda, jit, njit
+import numba as nb
+from numba.types import float64, int64, ListType, List
 import seaborn as sns
 
 def connection_probability(weights, probability, strength):
@@ -22,7 +23,8 @@ def connection_probability(weights, probability, strength):
     return weights*strength
 
 
-def show_plot_2D(rE1, rE2, rP1, rP2, rS1, rS2, t, stim_start, stim_stop, delta_t, title = None, save_figure=None, name=None):
+def show_plot_2D(rE1, rE2, rP1, rP2, rS1, rS2, t, stim_start, stim_stop,
+                 delta_t, title = None, save_figure=None, name=None):
     ratio = .6
     figure_len, figure_width = 15 * ratio, 12 * ratio
     font_size_1, font_size_2 = 36 * ratio, 36 * ratio
@@ -104,10 +106,14 @@ def show_plot_weights(w1,w2,w3,w4, t, stim_time, title = None, save_figure=None,
     plt.tick_params(width=line_width, length=tick_len)
     # plt.yscale('symlog', linthreshy=0.1) # linthreshy throw an error, ignored since plot does not diverge to inf
     plt.axvline(x=stim_time, color='r', label='Stimulus', linestyle='dashed')
-    plt.plot(t[:], w1[:], 'xkcd:green',         label='Average J_EE11 after stimulus:'+ str(np.round(w1[-1], 3)), linewidth=plot_line_width, linestyle='dashed')
-    plt.plot(t[:], w2[:], 'xkcd:yellowgreen',   label='Average J_EE12 after stimulus:'+ str(np.round(w2[-1], 3)), linewidth=plot_line_width)
-    plt.plot(t[:], w3[:], 'xkcd:dodger blue',   label='Average J_EE21 after stimulus:'+ str(np.round(w3[-1], 3)), linewidth=plot_line_width, linestyle='dashed')
-    plt.plot(t[:], w4[:], 'xkcd:duck egg blue', label='Average J_EE22 after stimulus:'+ str(np.round(w4[-1], 3)), linewidth=plot_line_width)
+    plt.plot(t[:], w1[:], 'xkcd:green',
+             label='Average J_EE11 after stimulus:'+ str(np.round(w1[-1], 3)), linewidth=plot_line_width, linestyle='dashed')
+    plt.plot(t[:], w2[:], 'xkcd:yellowgreen',
+             label='Average J_EE12 after stimulus:'+ str(np.round(w2[-1], 3)), linewidth=plot_line_width)
+    plt.plot(t[:], w3[:], 'xkcd:dodger blue',
+             label='Average J_EE21 after stimulus:'+ str(np.round(w3[-1], 3)), linewidth=plot_line_width, linestyle='dashed')
+    plt.plot(t[:], w4[:], 'xkcd:duck egg blue',
+             label='Average J_EE22 after stimulus:'+ str(np.round(w4[-1], 3)), linewidth=plot_line_width)
     if title is not None:
         plt.title(str(title))
 
@@ -146,10 +152,14 @@ def show_plot_currents(IE1,IE2,ID1,ID2, t, stim_time, title = None, save_figure=
     plt.tick_params(width=line_width, length=tick_len)
     # plt.yscale('symlog', linthreshy=0.1) # linthreshy throw an error, ignored since plot does not diverge to inf
     plt.axvline(x=stim_time, color='r', label='Stimulus', linestyle='dashed')
-    plt.plot(t[:], IE1[:], 'xkcd:green',         label='Average I_E1 after stimulus:'+ str(np.round(IE1[-1], 3)), linewidth=plot_line_width, linestyle='dashed')
-    plt.plot(t[:], IE2[:], 'xkcd:yellowgreen',   label='Average I_E2 after stimulus:'+ str(np.round(IE2[-1], 3)), linewidth=plot_line_width)
-    plt.plot(t[:], ID1[:], 'xkcd:dodger blue',   label='Average I_D1 after stimulus:'+ str(np.round(ID1[-1], 3)), linewidth=plot_line_width, linestyle='dashed')
-    plt.plot(t[:], ID2[:], 'xkcd:duck egg blue', label='Average I_D2 after stimulus:'+ str(np.round(ID2[-1], 3)), linewidth=plot_line_width)
+    plt.plot(t[:], IE1[:], 'xkcd:green',
+             label='Average I_E1 after stimulus:'+ str(np.round(IE1[-1], 3)), linewidth=plot_line_width, linestyle='dashed')
+    plt.plot(t[:], IE2[:], 'xkcd:yellowgreen',
+             label='Average I_E2 after stimulus:'+ str(np.round(IE2[-1], 3)), linewidth=plot_line_width)
+    plt.plot(t[:], ID1[:], 'xkcd:dodger blue',
+             label='Average I_D1 after stimulus:'+ str(np.round(ID1[-1], 3)), linewidth=plot_line_width, linestyle='dashed')
+    plt.plot(t[:], ID2[:], 'xkcd:duck egg blue',
+             label='Average I_D2 after stimulus:'+ str(np.round(ID2[-1], 3)), linewidth=plot_line_width)
     if title is not None:
         plt.title(str(title))
 
@@ -207,7 +217,8 @@ def show_plot_currents_mass(IE1,IE2, t, stim_time, title = None, save_figure=Non
         plt.show()
 
 
-def show_plot_plasticity_terms_2compartmental(plas_terms, t, stim_start, stim_stop, stim_strength_E, delta_t, title = None, save_figure=None, name=None):
+def show_plot_plasticity_terms_2compartmental(plas_terms, t, stim_start, stim_stop,
+                                              stim_strength_E, delta_t, title = None, save_figure=None, name=None):
     ratio = .6
     figure_len, figure_width = 15 * ratio, 12 * ratio
     font_size_1, font_size_2 = 36 * ratio, 36 * ratio
@@ -357,8 +368,6 @@ def plot_all_2compartmental(t, vars, plas_terms, stim_start, stim_stop, stim_str
              str(np.round(np.mean(rS2[stim_time - 200:stim_time]), 3)) + 'Hz, s.s. after stimulus:'+
              str(np.round(np.mean(rS2[-200:]), 3)))"""
 
-    #plt.xlim([int(2*(1/delta_t)), int(len(t))])
-    #plt.xticks(np.arange(int(2*(1/delta_t)), int(len(t)), int(.25*len(t))), [0, int(.25*len(t)), int(.5*len(t)), int(.75*len(t)), int(len(t))], fontsize=font_size_1, **hfont)
     plt.xticks(fontsize=font_size_1, **hfont)
 
     plt.ylim([0, 8])
@@ -388,8 +397,6 @@ def plot_all_2compartmental(t, vars, plas_terms, stim_start, stim_stop, stim_str
     plt.plot(t,J_DE12, linewidth=plot_line_width, label = r'$J_{DE}^{12}$')
     plt.plot(t,J_DE22, linewidth=plot_line_width, label = r'$J_{DE}^{22}$')
 
-    # plt.xlim([int(2*(1/delta_t)), int(len(t))])
-    # plt.xticks(np.arange(int(2*(1/delta_t)), int(len(t)), int(.25*len(t))), [0, int(.25*len(t)), int(.5*len(t)), int(.75*len(t)), int(len(t))], fontsize=font_size_1, **hfont)
     plt.xticks(fontsize=font_size_1, **hfont)
 
     plt.ylim([0, 0.6])
@@ -420,8 +427,6 @@ def plot_all_2compartmental(t, vars, plas_terms, stim_start, stim_stop, stim_str
     plt.plot(t,J_EE12, linewidth=plot_line_width, label = r'$J_{EE}^{12}$')
     plt.plot(t,J_EE22, linewidth=plot_line_width, label = r'$J_{EE}^{22}$')
 
-    # plt.xlim([int(2*(1/delta_t)), int(len(t))])
-    # plt.xticks(np.arange(int(2*(1/delta_t)), int(len(t)), int(.25*len(t))), [0, int(.25*len(t)), int(.5*len(t)), int(.75*len(t)), int(len(t))], fontsize=font_size_1, **hfont)
     plt.xticks(fontsize=font_size_1, **hfont)
 
     plt.ylim([0, 0.6])
@@ -452,8 +457,6 @@ def plot_all_2compartmental(t, vars, plas_terms, stim_start, stim_stop, stim_str
     plt.plot(t,J_EP12, linewidth=plot_line_width, label = r'$J_{EP}^{12}$')
     plt.plot(t,J_EP22, linewidth=plot_line_width, label = r'$J_{EP}^{22}$')
 
-    # plt.xlim([int(2*(1/delta_t)), int(len(t))])
-    # plt.xticks(np.arange(int(2*(1/delta_t)), int(len(t)), int(.25*len(t))), [0, int(.25*len(t)), int(.5*len(t)), int(.75*len(t)), int(len(t))], fontsize=font_size_1, **hfont)
     plt.xticks(fontsize=font_size_1, **hfont)
 
     plt.ylim([0, 0.6])
@@ -485,8 +488,6 @@ def plot_all_2compartmental(t, vars, plas_terms, stim_start, stim_stop, stim_str
     plt.plot(t,J_DS12, linewidth=plot_line_width, label = r'$J_{DS}^{12}$')
     plt.plot(t,J_DS22, linewidth=plot_line_width, label = r'$J_{DS}^{22}$')
 
-    # plt.xlim([int(2*(1/delta_t)), int(len(t))])
-    # plt.xticks(np.arange(int(2*(1/delta_t)), int(len(t)), int(.25*len(t))), [0, int(.25*len(t)), int(.5*len(t)), int(.75*len(t)), int(len(t))], fontsize=font_size_1, **hfont)
     plt.xticks(fontsize=font_size_1, **hfont)
 
     plt.ylim([0, 0.6])
@@ -522,8 +523,6 @@ def plot_all_2compartmental(t, vars, plas_terms, stim_start, stim_stop, stim_str
     plt.plot(t, plas_terms[33], color=color_list[2], linestyle='dashed', linewidth=plot_line_width, label=r'$LR_{DE12}$')
     plt.plot(t, plas_terms[35], color=color_list[3], linestyle='dashed', linewidth=plot_line_width, label=r'$LR_{DE22}$')
 
-    # plt.xlim([int(2*(1/delta_t)), int(len(t))])
-    # plt.xticks(np.arange(int(2*(1/delta_t)), int(len(t)), int(.25*len(t))), [0, int(.25*len(t)), int(.5*len(t)), int(.75*len(t)), int(len(t))], fontsize=font_size_1, **hfont)
     plt.xticks(fontsize=font_size_1, **hfont)
 
     plt.ylim([0, .2])
@@ -548,9 +547,11 @@ def plot_all_2compartmental(t, vars, plas_terms, stim_start, stim_stop, stim_str
         ax.spines[axis].set_linewidth(line_width)
     plt.tick_params(width=line_width, length=tick_len)
 
-    ax = sns.barplot(data=[[(J_EE11[int(stim_start*(1/delta_t))-10] + J_EE12[int(stim_start*(1/delta_t))-10])/(J_EP11[int(stim_start*(1/delta_t))-10] + J_EP12[int(stim_start*(1/delta_t))-10])],
+    ax = sns.barplot(data=[[(J_EE11[int(stim_start*(1/delta_t))-10] + J_EE12[int(stim_start*(1/delta_t))-10])/
+                            (J_EP11[int(stim_start*(1/delta_t))-10] + J_EP12[int(stim_start*(1/delta_t))-10])],
                            [(J_EE11[-10] + J_EE12[-10])/(J_EP11[-10] + J_EP12[-10])],
-                           [(J_EE21[int(stim_start*(1/delta_t))-10] + J_EE22[int(stim_start*(1/delta_t))-10])/(J_EP21[int(stim_start*(1/delta_t))-10] + J_EP22[int(stim_start*(1/delta_t))-10])],
+                           [(J_EE21[int(stim_start*(1/delta_t))-10] + J_EE22[int(stim_start*(1/delta_t))-10])/
+                            (J_EP21[int(stim_start*(1/delta_t))-10] + J_EP22[int(stim_start*(1/delta_t))-10])],
                            [(J_EE21[-10] + J_EE22[-10])/(J_EP21[-10] + J_EP22[-10])]],
                      linewidth=line_width, errwidth=line_width, facecolor=(1, 1, 1, 0), errcolor=".2", edgecolor=".2")
 
@@ -582,8 +583,12 @@ def plot_all_2compartmental(t, vars, plas_terms, stim_start, stim_stop, stim_str
         ax.spines[axis].set_linewidth(line_width)
     plt.tick_params(width=line_width, length=tick_len)
 
-    ax = sns.barplot(data=[[(J_DE11[int(stim_start*(1/delta_t))-10] + J_DE12[int(stim_start*(1/delta_t))-10])/(J_DS11[int(stim_start*(1/delta_t))-10] + J_DS12[int(stim_start*(1/delta_t))-10])], [(J_DE11[-10] + J_DE12[-10])/(J_DS11[-10] + J_DS12[-10])],
-                           [(J_DE21[int(stim_start*(1/delta_t))-10] + J_DE22[int(stim_start*(1/delta_t))-10])/(J_DS21[int(stim_start*(1/delta_t))-10] + J_DS22[int(stim_start*(1/delta_t))-10])], [(J_DE21[-10] + J_DE22[-10])/(J_DS21[-10] + J_DS22[-10])]],
+    ax = sns.barplot(data=[[(J_DE11[int(stim_start*(1/delta_t))-10] + J_DE12[int(stim_start*(1/delta_t))-10])/
+                            (J_DS11[int(stim_start*(1/delta_t))-10] + J_DS12[int(stim_start*(1/delta_t))-10])],
+                           [(J_DE11[-10] + J_DE12[-10])/(J_DS11[-10] + J_DS12[-10])],
+                           [(J_DE21[int(stim_start*(1/delta_t))-10] + J_DE22[int(stim_start*(1/delta_t))-10])/
+                            (J_DS21[int(stim_start*(1/delta_t))-10] + J_DS22[int(stim_start*(1/delta_t))-10])],
+                           [(J_DE21[-10] + J_DE22[-10])/(J_DS21[-10] + J_DS22[-10])]],
                      linewidth=line_width, errwidth=line_width, facecolor=(1, 1, 1, 0), errcolor=".2", edgecolor=".2")
     widthbars = [0.3, 0.3, 0.3, 0.3]
     for bar, newwidth in zip(ax.patches, widthbars):
@@ -602,10 +607,12 @@ def plot_all_2compartmental(t, vars, plas_terms, stim_start, stim_stop, stim_str
     plt.savefig('png/' + s_name + '_top_down_EI_ratio.png')
     plt.close()
 
-    show_plot_plasticity_terms_2compartmental(plas_terms, t, stim_start, stim_stop, stim_strength_E, delta_t, title, save_figure=1, name=s_name)
+    show_plot_plasticity_terms_2compartmental(plas_terms, t, stim_start, stim_stop,
+                                              stim_strength_E, delta_t, title, save_figure=1, name=s_name)
 
 
-def show_plot_plasticity_terms_mass(plas_terms, t, stim_start, stim_stop, stim_strength_E, delta_t, title = None, save_figure=None, name=None):
+def show_plot_plasticity_terms_mass(plas_terms, rE1, rE2, t, stim_start, stim_stop,
+                                    stim_strength_E, delta_t, title = None, save_figure=None, name=None):
     ratio = .8
     figure_len, figure_width = 15 * ratio, 12 * ratio
     font_size_1, font_size_2 = 36 * ratio, 36 * ratio
@@ -635,41 +642,43 @@ def show_plot_plasticity_terms_mass(plas_terms, t, stim_start, stim_stop, stim_s
               "theta_I1", "theta_I2", "LR_EE11", "LR_EE12", "LR_EE21", "LR_EE22"]
 
     plt.subplot(421)
-    plt.plot(t,plas_terms[0], label=labels[0])# + "last value is " + str(plas_terms[0][-1]))
-    plt.plot(t,plas_terms[1], label=labels[1])# + "last value is " + str(plas_terms[1][-1]))
-    plt.plot(t,plas_terms[2], label=labels[2])# + "last value is " + str(plas_terms[2][-1]))
-    plt.plot(t,plas_terms[3], label=labels[3])# + "last value is " + str(plas_terms[3][-1]))
+    plt.plot(t[0:len(t):200],plas_terms[0][0:len(t):200], label=labels[0])# + "last value is " + str(plas_terms[0][-1]))
+    plt.plot(t[0:len(t):200],plas_terms[1][0:len(t):200], label=labels[1])# + "last value is " + str(plas_terms[1][-1]))
+    plt.plot(t[0:len(t):200],plas_terms[2][0:len(t):200], label=labels[2])# + "last value is " + str(plas_terms[2][-1]))
+    plt.plot(t[0:len(t):200],plas_terms[3][0:len(t):200], label=labels[3])# + "last value is " + str(plas_terms[3][-1]))
     #plt.xlim([1, 200])
     plt.legend(prop={"family": "Arial", 'size': legend_size}, loc='upper right')
 
     plt.subplot(423)
-    plt.plot(t,plas_terms[4], label=labels[4] + str(np.sum(plas_terms[4])))
+    plt.plot(t[0:len(t):200],plas_terms[4][0:len(t):200], label=labels[4])# + str(np.sum(plas_terms[4])))
     plt.legend(prop={"family": "Arial", 'size': legend_size}, loc='upper right')
 
     plt.subplot(424)
-    plt.plot(t, plas_terms[5],  label=labels[5] + str(np.sum(plas_terms[5])))
+    plt.plot(t[0:len(t):200], plas_terms[5][0:len(t):200],  label=labels[5])# + str(np.sum(plas_terms[5])))
     plt.legend(prop={"family": "Arial", 'size': legend_size}, loc='upper right')
 
     plt.subplot(425)
-    plt.plot(t, -plas_terms[4],  label=labels[6])
+    plt.plot(t[0:len(t):200], -plas_terms[4][0:len(t):200],  label=labels[6])
     plt.legend(prop={"family": "Arial", 'size': legend_size}, loc='upper right')
     plt.ylabel('Value of the term [a.u.]', fontsize=font_size_1, **hfont)
 
     plt.subplot(426)
-    plt.plot(t, -plas_terms[5],  label=labels[7])
+    plt.plot(t[0:len(t):200], -plas_terms[5][0:len(t):200],  label=labels[7])
     plt.legend(prop={"family": "Arial", 'size': legend_size}, loc='upper right')
 
     plt.subplot(427)
-    plt.plot(t[0:len(t):100],plas_terms[6][0:len(t):100], label=labels[8] + " final value " + str(np.round(plas_terms[6][-1],2)))
-    plt.plot(t[0:len(t):100],plas_terms[7][0:len(t):100], label=labels[9] + " final value " + str(np.round(plas_terms[7][-1],2)))
-    plt.legend(prop={"family": "Arial", 'size': legend_size}, loc='upper right')
-    #plt.xlim([1, 200])
+    plt.plot(t[0:len(t):200],plas_terms[6][0:len(t):200], 'b', )#label=labels[8] + " final value " + str(np.round(plas_terms[6][-1],4)))
+    plt.plot(t[0:len(t):200],rE1[0:len(t):200],  'b', linestyle= 'dashed', )#label="rE1 final value " + str(np.round(rE1[-1],4)))
+    plt.plot(t[0:len(t):200],plas_terms[7][0:len(t):200], 'r', )#label=labels[9] + " final value " + str(np.round(plas_terms[7][-1],4)))
+    plt.plot(t[0:len(t):200],rE2[0:len(t):200],  'r', linestyle= 'dashed', )#label="rE2 final value " + str(np.round(rE2[-1],4)))
+    #plt.legend(prop={"family": "Arial", 'size': legend_size}, loc='upper right')
+    plt.ylim([.8, max(plas_terms[6])+0.1])
 
     plt.subplot(428)
-    plt.plot(t[0:len(t):100],plas_terms[8][0:len(t):100], label=labels[10])
-    plt.plot(t[0:len(t):100],plas_terms[9][0:len(t):100], label=labels[11])
-    plt.plot(t[0:len(t):100],plas_terms[10][0:len(t):100], label=labels[12])
-    plt.plot(t[0:len(t):100],plas_terms[11][0:len(t):100], label=labels[13])
+    plt.plot(t[0:len(t):200],plas_terms[8][0:len(t):200],  label=labels[10])
+    plt.plot(t[0:len(t):200],plas_terms[9][0:len(t):200],  label=labels[11])
+    plt.plot(t[0:len(t):200],plas_terms[10][0:len(t):200], label=labels[12])
+    plt.plot(t[0:len(t):200],plas_terms[11][0:len(t):200], label=labels[13])
     plt.legend(prop={"family": "Arial", 'size': legend_size}, loc='upper right')
     #plt.xlim([1, 200])
 
@@ -718,9 +727,9 @@ def plot_all_mass(t, vars, plas_terms, stim_start, stim_stop, stim_strength_E, d
     plt.axvspan(stim_start, stim_stop, color='red', alpha=0.3, label="Stimulus of " + str(stim_strength_E))
 
     plt.plot(t[0:len(t):100], rE1[0:len(t):100], color=color_list[0], linewidth=plot_line_width, label=r'difference in $r_{E1}$ is '+
-             str(np.round(-rE1[stim_time-2] + rE1[-2], 2)))
+             str(np.round(-rE1[stim_time-2] + rE1[-2], 4)))
     plt.plot(t[0:len(t):100], rE2[0:len(t):100], color=color_list[0], linestyle='dashed', linewidth=plot_line_width, label=r'difference in $r_{E2}$ is '+
-             str(np.round(-rE2[stim_time-2] + rE2[-2], 2)))
+             str(np.round(-rE2[stim_time-2] + rE2[-2], 4)))
     plt.plot(t[0:len(t):100], rP1[0:len(t):100], color=color_list[1], linewidth=plot_line_width, label=r'$r_{P1}$')
     plt.plot(t[0:len(t):100], rP2[0:len(t):100], color=color_list[1], linestyle='dashed', linewidth=plot_line_width, label=r'$r_{P2}$')
     plt.plot(t[0:len(t):100], rS1[0:len(t):100], color=color_list[2], linewidth=plot_line_width, label=r'$r_{S1}$')
@@ -736,7 +745,7 @@ def plot_all_mass(t, vars, plas_terms, stim_start, stim_stop, stim_strength_E, d
     plt.xlabel('Time (s)', fontsize=font_size_1, **hfont)
     plt.ylabel('Firing rate', fontsize=font_size_1, **hfont)
     plt.title(title, fontsize=font_size_1, **hfont)
-    ax.legend(fontsize=font_size_1*.5, loc='center right')
+    ax.legend(fontsize=legend_size, loc='center right')
 
     plt.savefig('png/' + s_name + '_activity.png')
     plt.close()
@@ -752,10 +761,10 @@ def plot_all_mass(t, vars, plas_terms, stim_start, stim_stop, stim_strength_E, d
     plt.tick_params(width=line_width, length=tick_len)
     plt.axvspan(stim_start, stim_stop, color='red', alpha=0.3, label="Stimulus of " + str(stim_strength_E))
 
-    plt.plot(t[0:len(t):100], J_EE11[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EE}^{11}$: ' + str(np.round(J_EE11[-1], 2)))
-    plt.plot(t[0:len(t):100], J_EE12[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EE}^{12}$: ' + str(np.round(J_EE12[-1], 2)))
-    plt.plot(t[0:len(t):100], J_EE21[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EE}^{21}$: ' + str(np.round(J_EE21[-1], 2)))
-    plt.plot(t[0:len(t):100], J_EE22[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EE}^{22}$: ' + str(np.round(J_EE22[-1], 2)))
+    plt.plot(t[0:len(t):100], J_EE11[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EE}^{11}$: ' + str(np.round(J_EE11[-1], 3)))
+    plt.plot(t[0:len(t):100], J_EE12[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EE}^{12}$: ' + str(np.round(J_EE12[-1], 3)))
+    plt.plot(t[0:len(t):100], J_EE21[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EE}^{21}$: ' + str(np.round(J_EE21[-1], 3)))
+    plt.plot(t[0:len(t):100], J_EE22[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EE}^{22}$: ' + str(np.round(J_EE22[-1], 3)))
 
     plt.xticks(fontsize=font_size_1, **hfont)
     plt.yticks(fontsize=font_size_1, **hfont)
@@ -766,9 +775,7 @@ def plot_all_mass(t, vars, plas_terms, stim_start, stim_stop, stim_strength_E, d
     plt.xlabel('Time (s)', fontsize=font_size_1, **hfont)
     plt.ylabel(r'$J_{EE}$', fontsize=font_size_1, **hfont)
     plt.title(title, fontsize=font_size_1, **hfont)
-    pos = ax.get_position()
-    ax.set_position([pos.x0, pos.y0, pos.width * 0.9, pos.height])
-    ax.legend(fontsize=font_size_1*.5, loc='center right', bbox_to_anchor=(1.25, 0.5))
+    plt.legend(fontsize=font_size_1*.5, loc='center right')
     plt.savefig('png/' + s_name + '_weight_EE.png')
     plt.close()
 
@@ -784,10 +791,10 @@ def plot_all_mass(t, vars, plas_terms, stim_start, stim_stop, stim_strength_E, d
     plt.tick_params(width=line_width, length=tick_len)
     plt.axvspan(stim_start, stim_stop, color='red', alpha=0.3, label="Stimulus of " + str(stim_strength_E))
 
-    plt.plot(t[0:len(t):100], J_EP11[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EP}^{11}$: ' + str(np.round(J_EP11[-1], 2)))
-    plt.plot(t[0:len(t):100], J_EP12[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EP}^{12}$: ' + str(np.round(J_EP12[-1], 2)))
-    plt.plot(t[0:len(t):100], J_EP21[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EP}^{21}$: ' + str(np.round(J_EP21[-1], 2)))
-    plt.plot(t[0:len(t):100], J_EP22[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EP}^{22}$: ' + str(np.round(J_EP22[-1], 2)))
+    plt.plot(t[0:len(t):100], J_EP11[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EP}^{11}$: ' + str(np.round(J_EP11[-1], 3)))
+    plt.plot(t[0:len(t):100], J_EP12[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EP}^{12}$: ' + str(np.round(J_EP12[-1], 3)))
+    plt.plot(t[0:len(t):100], J_EP21[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EP}^{21}$: ' + str(np.round(J_EP21[-1], 3)))
+    plt.plot(t[0:len(t):100], J_EP22[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EP}^{22}$: ' + str(np.round(J_EP22[-1], 3)))
 
     plt.xticks(fontsize=font_size_1, **hfont)
     plt.yticks(fontsize=font_size_1, **hfont)
@@ -814,10 +821,10 @@ def plot_all_mass(t, vars, plas_terms, stim_start, stim_stop, stim_strength_E, d
     plt.tick_params(width=line_width, length=tick_len)
     plt.axvspan(stim_start, stim_stop, color='red', alpha=0.3, label="Stimulus of " + str(stim_strength_E))
 
-    plt.plot(t[0:len(t):100], J_DS11[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{DS}^{11}$: ' + str(np.round(J_DS11[-1], 2)))
-    plt.plot(t[0:len(t):100], J_DS12[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{DS}^{12}$: ' + str(np.round(J_DS12[-1], 2)))
-    plt.plot(t[0:len(t):100], J_DS21[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{DS}^{21}$: ' + str(np.round(J_DS21[-1], 2)))
-    plt.plot(t[0:len(t):100], J_DS22[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{DS}^{22}$: ' + str(np.round(J_DS22[-1], 2)))
+    plt.plot(t[0:len(t):100], J_DS11[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{DS}^{11}$: ' + str(np.round(J_DS11[-1], 3)))
+    plt.plot(t[0:len(t):100], J_DS12[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{DS}^{12}$: ' + str(np.round(J_DS12[-1], 3)))
+    plt.plot(t[0:len(t):100], J_DS21[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{DS}^{21}$: ' + str(np.round(J_DS21[-1], 3)))
+    plt.plot(t[0:len(t):100], J_DS22[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{DS}^{22}$: ' + str(np.round(J_DS22[-1], 3)))
 
     plt.xticks(fontsize=font_size_1, **hfont)
     plt.yticks(fontsize=font_size_1, **hfont)
@@ -901,8 +908,8 @@ def plot_all_mass(t, vars, plas_terms, stim_start, stim_stop, stim_strength_E, d
     plt.savefig('png/' + s_name + '_bottom_up_EI_ratio.png')
     plt.close()
 
-    show_plot_plasticity_terms_mass(plas_terms, t, stim_start, stim_stop, stim_strength_E, delta_t, title, save_figure=1,
-                               name=s_name)
+    show_plot_plasticity_terms_mass(plas_terms, rE1, rE2, t, stim_start, stim_stop, stim_strength_E,
+                                    delta_t, title, save_figure=1,name=s_name)
 
 
 def create_save_noise_2D(N_PC,N_PV,N_SOM,t,noise_strength,path):
@@ -929,11 +936,15 @@ def create_save_noise_2D(N_PC,N_PV,N_SOM,t,noise_strength,path):
     pickle.dump(noises, open(path, 'wb'))
 
 def create_save_weights_2D(N_PC,N_PV,N_SOM,weight_strengths,weight_probabilities,uniform_distribution=0,path=None,save_weigths=0):
-    s_EE11, s_EE12, s_DE11, s_DE12, s_DS11, s_EP11, s_PE11, s_SE11, s_PS11, s_PP11, s_DS12, s_EP12, s_PE12, s_SE12, s_PS12, s_PP12, \
-    s_EE21, s_EE22, s_DE22, s_DE21, s_DS21, s_EP21, s_PE21, s_SE21, s_PS21, s_PP21, s_DS22, s_EP22, s_PE22, s_SE22, s_PS22, s_PP22 = weight_strengths
+    s_EE11, s_EE12, s_DE11, s_DE12, s_DS11, s_EP11, s_PE11, s_SE11, s_PS11, s_PP11, \
+    s_DS12, s_EP12, s_PE12, s_SE12, s_PS12, s_PP12, \
+    s_EE21, s_EE22, s_DE22, s_DE21, s_DS21, s_EP21, s_PE21, s_SE21, s_PS21, s_PP21, \
+    s_DS22, s_EP22, s_PE22, s_SE22, s_PS22, s_PP22 = weight_strengths
 
-    p_EE11, p_EE12, p_DE11, p_DE12, p_DS11, p_EP11, p_PE11, p_SE11, p_PS11, p_PP11, p_DS12, p_EP12, p_PE12, p_SE12, p_PS12, p_PP12, \
-    p_EE21, p_EE22, p_DE22, p_DE21, p_DS21, p_EP21, p_PE21, p_SE21, p_PS21, p_PP21, p_DS22, p_EP22, p_PE22, p_SE22, p_PS22, p_PP22 = weight_probabilities
+    p_EE11, p_EE12, p_DE11, p_DE12, p_DS11, p_EP11, p_PE11, p_SE11, \
+    p_PS11, p_PP11, p_DS12, p_EP12, p_PE12, p_SE12, p_PS12, p_PP12, \
+    p_EE21, p_EE22, p_DE22, p_DE21, p_DS21, p_EP21, p_PE21, p_SE21, \
+    p_PS21, p_PP21, p_DS22, p_EP22, p_PE22, p_SE22, p_PS22, p_PP22 = weight_probabilities
 
     if uniform_distribution:
         a = 1
@@ -973,35 +984,28 @@ def create_save_weights_2D(N_PC,N_PV,N_SOM,weight_strengths,weight_probabilities
     w_SE22 = connection_probability(a* np.random.rand(N_SOM, N_PC) + b * np.ones((N_SOM, N_PC)), p_SE22, s_SE22)
 
     # excitation and inhibition on inhibitory neurons
-    w_PS11 = connection_probability(a* np.random.rand(N_PV, N_SOM) + b * np.ones((N_PV, N_SOM)), p_PS11, s_PS11)  # inhibition of P1, disinhibiting E1
-    w_PS12 = connection_probability(a* np.random.rand(N_PV, N_SOM) + b * np.ones((N_PV, N_SOM)), p_PS12, s_PS12)  # inhibition of P2, disinhibiting E1
-    w_PS21 = connection_probability(a* np.random.rand(N_PV, N_SOM) + b * np.ones((N_PV, N_SOM)), p_PS21, s_PS21)  # inhibition of P1, disinhibiting E2
-    w_PS22 = connection_probability(a* np.random.rand(N_PV, N_SOM) + b * np.ones((N_PV, N_SOM)), p_PS22, s_PS22)  # inhibition of P2, disinhibiting E2
-    w_PP11 = connection_probability(a* np.random.rand(N_PV, N_PV)  + b * np.ones((N_PV, N_PV)), p_PP11, s_PP11)  # self-inhibition of P1, disinhibiting E1
-    w_PP12 = connection_probability(a* np.random.rand(N_PV, N_PV)  + b * np.ones((N_PV, N_PV)), p_PP12, s_PP12)  # self-inhibition of P2, disinhibiting E1
-    w_PP21 = connection_probability(a* np.random.rand(N_PV, N_PV)  + b * np.ones((N_PV, N_PV)), p_PP21, s_PP21)  # self-inhibition of P1, disinhibiting E2
-    w_PP22 = connection_probability(a* np.random.rand(N_PV, N_PV)  + b * np.ones((N_PV, N_PV)), p_PP22, s_PP22)  # self-inhibition of P2, disinhibiting E2
+    w_PS11 = connection_probability(a* np.random.rand(N_PV, N_SOM) + b * np.ones((N_PV, N_SOM)), p_PS11, s_PS11)
+    w_PS12 = connection_probability(a* np.random.rand(N_PV, N_SOM) + b * np.ones((N_PV, N_SOM)), p_PS12, s_PS12)
+    w_PS21 = connection_probability(a* np.random.rand(N_PV, N_SOM) + b * np.ones((N_PV, N_SOM)), p_PS21, s_PS21)
+    w_PS22 = connection_probability(a* np.random.rand(N_PV, N_SOM) + b * np.ones((N_PV, N_SOM)), p_PS22, s_PS22)
+    w_PP11 = connection_probability(a* np.random.rand(N_PV, N_PV)  + b * np.ones((N_PV, N_PV)), p_PP11, s_PP11)
+    w_PP12 = connection_probability(a* np.random.rand(N_PV, N_PV)  + b * np.ones((N_PV, N_PV)), p_PP12, s_PP12)
+    w_PP21 = connection_probability(a* np.random.rand(N_PV, N_PV)  + b * np.ones((N_PV, N_PV)), p_PP21, s_PP21)
+    w_PP22 = connection_probability(a* np.random.rand(N_PV, N_PV)  + b * np.ones((N_PV, N_PV)), p_PP22, s_PP22)
 
     if save_weigths:
         pickle.dump((
-        w_EE11, w_EE12, w_DE11, w_DE12, w_DS11, w_EP11, w_PE11, w_SE11, w_PS11, w_PP11, w_DS12, w_EP12, w_PE12, w_SE12, w_PS12, w_PP12,
-        w_EE22, w_EE21, w_DE22, w_DE21, w_DS21, w_EP21, w_PE21, w_SE21, w_PS21, w_PP21, w_DS22, w_EP22, w_PE22, w_SE22, w_PS22, w_PP22), open(path, 'wb'))
+        w_EE11, w_EE12, w_DE11, w_DE12, w_DS11, w_EP11, w_PE11, w_SE11,
+        w_PS11, w_PP11, w_DS12, w_EP12, w_PE12, w_SE12, w_PS12, w_PP12,
+        w_EE22, w_EE21, w_DE22, w_DE21, w_DS21, w_EP21, w_PE21, w_SE21,
+        w_PS21, w_PP21, w_DS22, w_EP22, w_PE22, w_SE22, w_PS22, w_PP22), open(path, 'wb'))
     else:
         return (
-        w_EE11, w_EE12, w_DE11, w_DE12, w_DS11, w_EP11, w_PE11, w_SE11, w_PS11, w_PP11, w_DS12, w_EP12, w_PE12, w_SE12, w_PS12, w_PP12,
-        w_EE22, w_EE21, w_DE22, w_DE21, w_DS21, w_EP21, w_PE21, w_SE21, w_PS21, w_PP21, w_DS22, w_EP22, w_PE22, w_SE22, w_PS22, w_PP22)
+        w_EE11, w_EE12, w_DE11, w_DE12, w_DS11, w_EP11, w_PE11, w_SE11,
+        w_PS11, w_PP11, w_DS12, w_EP12, w_PE12, w_SE12, w_PS12, w_PP12,
+        w_EE22, w_EE21, w_DE22, w_DE21, w_DS21, w_EP21, w_PE21, w_SE21,
+        w_PS21, w_PP21, w_DS22, w_EP22, w_PE22, w_SE22, w_PS22, w_PP22)
 
-
-@jit(float64[:](float64[:], int64),nopython=True)
-def round_array(x, decimals):
-    return np.round_(x, decimals, x)
-
-@jit(nopython=True)
-def apply_hard_bound(array, lower_bound, upper_bound):
-    for row in array:
-        row[row < lower_bound] = lower_bound
-        row[row > upper_bound] = upper_bound
-    return array
 
 def determine_name(flags):
     (hebbian_plasticity_flag, exc_scaling_flag, inh_scaling_flag,
@@ -1020,7 +1024,7 @@ def determine_name(flags):
     elif flags == (1,1,1,0,1):
         return "5heb_adapLR_excSS_inhSS", "Hebbian, adaptive LR, and both SS"
     elif flags == (1,1,1,1,1):
-        return "6heb_adapLR_excSS_inhSS_adapThr",  "Hebbian, adaptive LR, both SS, and adaptive threshold"
+        return "6heb_adapLR_excSS_inhSS_adapThr",  "Hebbian, adaptive LR, adaptive threshold, and both SS"
     elif flags == (1,1,1,1,0):
         return "7heb_adapThr_excSS_inhSS_adapThr",  "Hebbian, both SS, and adaptive threshold"
     else:
@@ -1029,5 +1033,45 @@ def determine_name(flags):
 
 def save_params(params, name):
     with open(name + ".txt", "w") as f:
+        f.writelines("Parameters")
+        f.write('\n')
         for i in params:
             f.writelines(str(i))
+            f.write('\n')
+
+def save_values(vars, plas_terms, name):
+    with open(name + ".txt", "w") as f:
+        f.writelines("Variables")
+        f.write('n')
+        f.write('n')
+
+        f.writelines("rE1 final " + str(vars[0][-1]))
+        f.write('n')
+        f.writelines("rE2 final " + str(vars[1][-1]))
+        f.write('n')
+        f.writelines("rE1-rE2 " + str(vars[0][-1]-vars[1][-1]))
+        f.write('n')
+        f.write('n')
+
+        f.writelines(str(np.max(plas_terms[4])),
+                     str(np.min(plas_terms[5])),
+                     str(np.max(plas_terms[6])),
+                     str(np.min(plas_terms[7])))
+
+
+
+
+#@jit(float64[:,:](float64[:,:,:], int64),nopython=True)
+#@jit('void(List(float64))', nopython=True)
+
+@nb.njit
+def round_array(x):
+    x = x + 5
+    return x
+
+@jit(nopython=True)
+def apply_hard_bound(array, lower_bound, upper_bound):
+    for row in array:
+        row[row < lower_bound] = lower_bound
+        row[row > upper_bound] = upper_bound
+    return array

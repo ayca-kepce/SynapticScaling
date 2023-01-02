@@ -19,8 +19,9 @@ from util import *
 def model_plasticity_based_on_current_all_mass(delta_t, vars, plas_terms,t, weights, back_inputs,
                                 stim_strengths, stim_start, stim_stop, taus, lambdas, rheobases, upper_bounds,
                                 learning_rates, adaptive_LR_method = "sum", synaptic_scaling_method = "subtractive",
-                                synaptic_scaling_update_method = "every_timestep", synaptic_scaling_compare_method = "individual",
-                                BCM_p=1, beta_ss=1, flags=(0,0,0,0,0)):
+                                synaptic_scaling_update_method = "every_timestep",
+                                synaptic_scaling_compare_method = "individual",
+                                BCM_p=1, beta_ss=1, ss_exponential=1,flags=(0,0,0,0,0)):
     (rE1, rE2, rP1, rP2, rS1, rS2, av_I1, av_I2,
      J_EE11, J_EE12, J_EE21, J_EE22, J_EP11, J_EP12, J_EP21, J_EP22, J_ES11, J_ES12, J_ES21, J_ES22) = vars
     (hebEE11, hebEE12, hebEE21, hebEE22,
@@ -30,8 +31,10 @@ def model_plasticity_based_on_current_all_mass(delta_t, vars, plas_terms,t, weig
     (LR_E01,LR_E02) = learning_rates
     learning_rate_EE11,learning_rate_EE12,learning_rate_EE21,learning_rate_EE22=LR_E01,LR_E02,LR_E01,LR_E02
 
-    (w_EE11, w_EE12, w_DE11, w_DE12, w_DS11, w_EP11, w_PE11, w_SE11, w_PS11, w_PP11, w_DS12, w_EP12, w_PE12, w_SE12, w_PS12, w_PP12,
-     w_EE22, w_EE21, w_DE22, w_DE21, w_DS21, w_EP21, w_PE21, w_SE21, w_PS21, w_PP21, w_DS22, w_EP22, w_PE22, w_SE22, w_PS22, w_PP22) = weights
+    (w_EE11, w_EE12, w_DE11, w_DE12, w_DS11, w_EP11, w_PE11, w_SE11,
+     w_PS11, w_PP11, w_DS12, w_EP12, w_PE12, w_SE12, w_PS12, w_PP12,
+     w_EE22, w_EE21, w_DE22, w_DE21, w_DS21, w_EP21, w_PE21, w_SE21,
+     w_PS21, w_PP21, w_DS22, w_EP22, w_PE22, w_SE22, w_PS22, w_PP22) = weights
     (x_E, x_P, x_S) = back_inputs
     (stim_strength_E,stim_strength_P) = stim_strengths
     (tau_E, tau_P, tau_S, tau_plas, tau_scaling, tau_theta, tau_LR) = taus
@@ -59,7 +62,6 @@ def model_plasticity_based_on_current_all_mass(delta_t, vars, plas_terms,t, weig
 
     step = 0
     for i in t:
-
         # the initial condition of the pasticity threshold is defined right before the stimulus, when the system is at steady state
         if step == int(stim_start * (1 / delta_t)):
             (theta_I1, theta_I2) = (E1,E2)
@@ -87,11 +89,13 @@ def model_plasticity_based_on_current_all_mass(delta_t, vars, plas_terms,t, weig
         I1 = x_E - EP110 * P01 - EP120 * P02 - ES110 * S01 - ES120 * S02 + EE110 * E01 + EE120 * E02 + stimulus_E
         I2 = x_E - EP210 * P01 - EP220 * P02 - ES210 * S01 - ES220 * S02 + EE210 * E01 + EE220 * E02
 
-        E1 = E01 + delta_t*(1/tau_E)*( -E01 + np.maximum(0,I1 - rheobase_E) )
-        E2 = E02 + delta_t*(1/tau_E)*( -E02 + np.maximum(0,I2 - rheobase_E) )
+        E1 = E01 + delta_t*(1/tau_E)*( -E01 + np.maximum(0,I1 - rheobase_E))
+        E2 = E02 + delta_t*(1/tau_E)*( -E02 + np.maximum(0,I2 - rheobase_E))
 
-        P1 = P01 + delta_t*(1/tau_P)*( -P01 + np.maximum(0, w_PE11 * E01 + w_PE12 * E02 - w_PS11 * S01 - w_PS12 * S02 - w_PP11 * P01 - w_PP12 * P02 + x_P - rheobase_P + stimulus_P))
-        P2 = P02 + delta_t*(1/tau_P)*( -P02 + np.maximum(0, w_PE21 * E01 + w_PE22 * E02 - w_PS21 * S01 - w_PS22 * S02 - w_PP21 * P01 - w_PP22 * P02 + x_P - rheobase_P))
+        P1 = P01 + delta_t*(1/tau_P)*( -P01 + np.maximum(0, w_PE11 * E01 + w_PE12 * E02 - w_PS11 * S01 - w_PS12 * S02
+                                                         - w_PP11 * P01 - w_PP12 * P02 + x_P - rheobase_P + stimulus_P))
+        P2 = P02 + delta_t*(1/tau_P)*( -P02 + np.maximum(0, w_PE21 * E01 + w_PE22 * E02 - w_PS21 * S01 - w_PS22 * S02
+                                                         - w_PP21 * P01 - w_PP22 * P02 + x_P - rheobase_P))
 
         S1 = S01 + delta_t*(1/tau_S)*( -S01 + np.maximum(0, w_SE11 * E01 + w_SE12 * E02 + x_S - rheobase_S))
         S2 = S02 + delta_t*(1/tau_S)*( -S02 + np.maximum(0, w_SE21 * E01 + w_SE22 * E02 + x_S - rheobase_S))
@@ -122,8 +126,8 @@ def model_plasticity_based_on_current_all_mass(delta_t, vars, plas_terms,t, weig
 
         if synaptic_scaling_method == "multiplicative":
             if (flag_every_timestep or (flag_threshold_exceeded and apply_ss)):  # or (flag_at_every_x_second and not np.mod(i,1000))):
-                ss1 = exc_scal_mask*delta_t * (1 / tau_scaling) * (1 - ratio_E1**3)
-                ss2 = exc_scal_mask*delta_t * (1 / tau_scaling) * (1 - ratio_E2**3)
+                ss1 = exc_scal_mask*delta_t * (1 / tau_scaling) * (1 - ratio_E1**ss_exponential)
+                ss2 = exc_scal_mask*delta_t * (1 / tau_scaling) * (1 - ratio_E2**ss_exponential)
             else:
                 ss1, ss2 = 0, 0
 
@@ -144,8 +148,8 @@ def model_plasticity_based_on_current_all_mass(delta_t, vars, plas_terms,t, weig
 
         elif synaptic_scaling_method == "subtractive":
             if (flag_every_timestep or (flag_threshold_exceeded and apply_ss)):# or (flag_at_every_x_second and not np.mod(i,1000))):
-                ss1 = exc_scal_mask * delta_t * (1 / tau_scaling) * (1 - ratio_E1**3)
-                ss2 = exc_scal_mask * delta_t * (1 / tau_scaling) * (1 - ratio_E2**3)
+                ss1 = exc_scal_mask * delta_t * (1 / tau_scaling) * (1 - ratio_E1**ss_exponential)
+                ss2 = exc_scal_mask * delta_t * (1 / tau_scaling) * (1 - ratio_E2**ss_exponential)
             else:
                 ss1, ss2 = 0, 0
 
@@ -204,6 +208,21 @@ def model_plasticity_based_on_current_all_mass(delta_t, vars, plas_terms,t, weig
             learning_rate_EE21 = learning_rate_EE21 / (tau_LR*np.abs(np.mean(hebEE21[step-1000:step]))+1)
             learning_rate_EE22 = learning_rate_EE22 / (tau_LR*np.abs(np.mean(hebEE22[step-1000:step]))+1)
 
+            """learning_rate_EE11=learning_rate_EE11*(learning_rate_EE11>0.01)
+            learning_rate_EE12=learning_rate_EE12*(learning_rate_EE12>0.01)
+            learning_rate_EE21=learning_rate_EE21*(learning_rate_EE21>0.01)
+            learning_rate_EE22=learning_rate_EE22*(learning_rate_EE22>0.01)"""
+
+        elif (adaptive_LR_method == "decay_after_stim"):
+            learning_rate_EE11 = learning_rate_EE11 + adaptive_LR_mask * (1/tau_LR) * delta_t * (-learning_rate_EE11)
+            learning_rate_EE12 = learning_rate_EE11
+            learning_rate_EE21 = learning_rate_EE11
+            learning_rate_EE22 = learning_rate_EE11
+
+        """learning_rate_EE11 = np.round(learning_rate_EE11, 3);learning_rate_EE12 = np.round(learning_rate_EE12, 3)
+        learning_rate_EE21 = np.round(learning_rate_EE21, 3);learning_rate_EE22 = np.round(learning_rate_EE22, 3)"""
+
+
         # hard bounds are applied to the weights
         EE11 = max(0,min(EE11,upper_bound_E));EE12 = max(0,min(EE12,upper_bound_E))
         EE21 = max(0,min(EE21,upper_bound_E));EE22 = max(0,min(EE22,upper_bound_E))
@@ -243,11 +262,6 @@ def model_plasticity_based_on_current_all_mass(delta_t, vars, plas_terms,t, weig
     print("weights ES ",ES11,ES12,ES21,ES22)
     print("ss terms ", np.max(ss1_list), np.min(ss1_list), np.max(ss2_list), np.min(ss2_list), )
     print("hebb terms ", heb_term_EE11,heb_term_EE12,heb_term_EE21,heb_term_EE22)
+    print("min hebb terms ", np.min(hebEE11),np.min(hebEE12),np.min(hebEE21),np.min(hebEE22))
     print("thetas", theta_I1, theta_I2)
     print("learning rates", learning_rate_EE11,learning_rate_EE12,learning_rate_EE21,learning_rate_EE22)
-    print("theta times", av_theta_I1[int(stim_start*(1/delta_t))],
-          av_theta_I1[int(stim_start*(1/delta_t))+1],
-          av_theta_I1[int(stim_start*(1/delta_t))+2],
-          av_theta_I1[int(stim_start*(1/delta_t))+10],
-          av_theta_I1[int(stim_start*(1/delta_t))+20],
-          av_theta_I1[int(stim_start*(1/delta_t))+60])
