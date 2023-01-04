@@ -55,7 +55,6 @@ def model_plasticity_based_on_current_all_mass(delta_t, vars, plas_terms,t, weig
 
     heb_term_EE11, heb_term_EE12, heb_term_EE21, heb_term_EE22 = 0, 0, 0, 0
     initial_sum_of_EE_weights = w_EE11+w_EE12+w_EE21+w_EE22
-
     flag_every_timestep = 0
     flag_threshold_exceeded = 0
     flag_at_every_x_second = 0
@@ -65,6 +64,7 @@ def model_plasticity_based_on_current_all_mass(delta_t, vars, plas_terms,t, weig
         # the initial condition of the pasticity threshold is defined right before the stimulus, when the system is at steady state
         if step == int(stim_start * (1 / delta_t)):
             (theta_I1, theta_I2) = (E1,E2)
+            initial_theta_mean = (theta_I1 + theta_I2) / 2
             if synaptic_scaling_update_method == "every_timestep":
                 flag_every_timestep = 1
             elif synaptic_scaling_update_method == "threshold_exceeded":
@@ -80,6 +80,11 @@ def model_plasticity_based_on_current_all_mass(delta_t, vars, plas_terms,t, weig
             stimulus_P = stim_strength_P
             print("Stimulus started.")
         elif step == int(stim_stop * (1 / delta_t)):
+            if adaptive_LR_method == "3-factor":
+                learning_rate_EE11 = 0
+                learning_rate_EE12 = 0
+                learning_rate_EE21 = 0
+                learning_rate_EE22 = 0
             stimulus_E, stimulus_P = 0, 0
             print("Stimulus ended.")
 
@@ -100,8 +105,12 @@ def model_plasticity_based_on_current_all_mass(delta_t, vars, plas_terms,t, weig
         S1 = S01 + delta_t*(1/tau_S)*( -S01 + np.maximum(0, w_SE11 * E01 + w_SE12 * E02 + x_S - rheobase_S))
         S2 = S02 + delta_t*(1/tau_S)*( -S02 + np.maximum(0, w_SE21 * E01 + w_SE22 * E02 + x_S - rheobase_S))
 
-        theta_I1 = theta_I1 + adaptive_threshold_mask*delta_t * (1 / tau_theta) * (E1**BCM_p - theta_I1)
-        theta_I2 = theta_I2 + adaptive_threshold_mask*delta_t * (1 / tau_theta) * (E2**BCM_p - theta_I2)
+        theta_mean = (theta_I1+theta_I2)/2
+        theta_I1 = theta_I1 + adaptive_threshold_mask*delta_t * (1 / tau_theta) * (-(theta_mean - initial_theta_mean) + (E1 - theta_I1))
+        theta_I2 = theta_I2 + adaptive_threshold_mask*delta_t * (1 / tau_theta) * (-(theta_mean - initial_theta_mean) + (E2 - theta_I2))
+
+        """theta_I1 = theta_I1 + adaptive_threshold_mask*delta_t * (1 / tau_theta) * (E1**BCM_p - theta_I1)
+        theta_I2 = theta_I2 + adaptive_threshold_mask*delta_t * (1 / tau_theta) * (E2**BCM_p - theta_I2)"""
 
         # rates and plasticity thresholds cannot go below 0 (exc ones cannot go below 1e-323, in order to avoid zero division)
         theta_I1=max(theta_I1,1e-323); theta_I2=max(theta_I2, 1e-323)
@@ -112,6 +121,11 @@ def model_plasticity_based_on_current_all_mass(delta_t, vars, plas_terms,t, weig
             heb_term_EE12 = learning_rate_EE12 * delta_t * (1 / tau_plas) * ((E1 - theta_I1) * E2)
             heb_term_EE21 = learning_rate_EE21 * delta_t * (1 / tau_plas) * ((E2 - theta_I2) * E1)
             heb_term_EE22 = learning_rate_EE22 * delta_t * (1 / tau_plas) * ((E2 - theta_I2) * E2)
+
+        """if heb_term_EE21<0:
+            print(heb_term_EE21,step)
+        if heb_term_EE22<0:
+            print(heb_term_EE22,step)"""
 
         sum_of_EE_weights = EE110+EE120+EE210+EE220
         apply_ss = ((sum_of_EE_weights > initial_sum_of_EE_weights * (1 + beta_ss)) or
@@ -260,8 +274,13 @@ def model_plasticity_based_on_current_all_mass(delta_t, vars, plas_terms,t, weig
     print("weights EE ",EE11,EE12,EE21,EE22)
     print("weights EP ",EP11,EP12,EP21,EP22)
     print("weights ES ",ES11,ES12,ES21,ES22)
-    print("ss terms ", np.max(ss1_list), np.min(ss1_list), np.max(ss2_list), np.min(ss2_list), )
-    print("hebb terms ", heb_term_EE11,heb_term_EE12,heb_term_EE21,heb_term_EE22)
+    print("final hebb terms ", heb_term_EE11,heb_term_EE12,heb_term_EE21,heb_term_EE22)
     print("min hebb terms ", np.min(hebEE11),np.min(hebEE12),np.min(hebEE21),np.min(hebEE22))
+    print("min hebb terms ", np.argmin(hebEE11)*delta_t,np.argmin(hebEE12)*delta_t,
+                             np.argmin(hebEE21)*delta_t,np.argmin(hebEE22)*delta_t)
+    print("min ss terms ", np.min(ss1_list), np.argmin(ss1_list)*delta_t,
+                           np.min(ss2_list), np.argmin(ss2_list)*delta_t)
+    print("max ss terms ", np.max(ss1_list), np.argmax(ss1_list)*delta_t,
+                           np.max(ss2_list), np.argmax(ss2_list)*delta_t)
     print("thetas", theta_I1, theta_I2)
     print("learning rates", learning_rate_EE11,learning_rate_EE12,learning_rate_EE21,learning_rate_EE22)

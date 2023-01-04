@@ -646,8 +646,16 @@ def show_plot_plasticity_terms_mass(plas_terms, rE1, rE2, t, stim_start, stim_st
     plt.plot(t[0:len(t):200],plas_terms[1][0:len(t):200], label=labels[1])# + "last value is " + str(plas_terms[1][-1]))
     plt.plot(t[0:len(t):200],plas_terms[2][0:len(t):200], label=labels[2])# + "last value is " + str(plas_terms[2][-1]))
     plt.plot(t[0:len(t):200],plas_terms[3][0:len(t):200], label=labels[3])# + "last value is " + str(plas_terms[3][-1]))
-    #plt.xlim([1, 200])
+    plt.xlim(0, 20)
     plt.legend(prop={"family": "Arial", 'size': legend_size}, loc='upper right')
+
+    plt.subplot(422)
+    plt.plot(t[0:len(t):200], plas_terms[8][0:len(t):200], label=labels[10])
+    plt.plot(t[0:len(t):200], plas_terms[9][0:len(t):200], label=labels[11])
+    plt.plot(t[0:len(t):200], plas_terms[10][0:len(t):200], label=labels[12])
+    plt.plot(t[0:len(t):200], plas_terms[11][0:len(t):200], label=labels[13])
+    plt.legend(prop={"family": "Arial", 'size': legend_size}, loc='upper right')
+    # plt.xlim([1, 200])
 
     plt.subplot(423)
     plt.plot(t[0:len(t):200],plas_terms[4][0:len(t):200], label=labels[4])# + str(np.sum(plas_terms[4])))
@@ -672,15 +680,24 @@ def show_plot_plasticity_terms_mass(plas_terms, rE1, rE2, t, stim_start, stim_st
     plt.plot(t[0:len(t):200],plas_terms[7][0:len(t):200], 'r', )#label=labels[9] + " final value " + str(np.round(plas_terms[7][-1],4)))
     plt.plot(t[0:len(t):200],rE2[0:len(t):200],  'r', linestyle= 'dashed', )#label="rE2 final value " + str(np.round(rE2[-1],4)))
     #plt.legend(prop={"family": "Arial", 'size': legend_size}, loc='upper right')
-    plt.ylim([.8, max(plas_terms[6])+0.1])
+    plt.ylim([.9, max(plas_terms[6])+0.3])
 
     plt.subplot(428)
+    plt.plot(t[0:len(t):200],plas_terms[6][0:len(t):200], 'b', )#label=labels[8] + " final value " + str(np.round(plas_terms[6][-1],4)))
+    plt.plot(t[0:len(t):200],rE1[0:len(t):200],  'b', linestyle= 'dashed', )#label="rE1 final value " + str(np.round(rE1[-1],4)))
+    plt.plot(t[0:len(t):200],plas_terms[7][0:len(t):200], 'r', )#label=labels[9] + " final value " + str(np.round(plas_terms[7][-1],4)))
+    plt.plot(t[0:len(t):200],rE2[0:len(t):200],  'r', linestyle= 'dashed', )#label="rE2 final value " + str(np.round(rE2[-1],4)))
+    #plt.legend(prop={"family": "Arial", 'size': legend_size}, loc='upper right')
+    plt.ylim([.9, max(plas_terms[6])+0.3])
+    plt.xlim(0, 100)
+
+    """plt.subplot(428)
     plt.plot(t[0:len(t):200],plas_terms[8][0:len(t):200],  label=labels[10])
     plt.plot(t[0:len(t):200],plas_terms[9][0:len(t):200],  label=labels[11])
     plt.plot(t[0:len(t):200],plas_terms[10][0:len(t):200], label=labels[12])
     plt.plot(t[0:len(t):200],plas_terms[11][0:len(t):200], label=labels[13])
     plt.legend(prop={"family": "Arial", 'size': legend_size}, loc='upper right')
-    #plt.xlim([1, 200])
+    #plt.xlim([1, 200])"""
 
     plt.xlabel('Time [s]', fontsize=font_size_1, **hfont, loc='right')
     plt.grid()
@@ -726,14 +743,18 @@ def plot_all_mass(t, vars, plas_terms, stim_start, stim_stop, stim_strength_E, d
     plt.tick_params(width=line_width, length=tick_len)
     plt.axvspan(stim_start, stim_stop, color='red', alpha=0.3, label="Stimulus of " + str(stim_strength_E))
 
-    plt.plot(t[0:len(t):100], rE1[0:len(t):100], color=color_list[0], linewidth=plot_line_width, label=r'difference in $r_{E1}$ is '+
-             str(np.round(-rE1[stim_time-2] + rE1[-2], 4)))
-    plt.plot(t[0:len(t):100], rE2[0:len(t):100], color=color_list[0], linestyle='dashed', linewidth=plot_line_width, label=r'difference in $r_{E2}$ is '+
-             str(np.round(-rE2[stim_time-2] + rE2[-2], 4)))
-    plt.plot(t[0:len(t):100], rP1[0:len(t):100], color=color_list[1], linewidth=plot_line_width, label=r'$r_{P1}$')
-    plt.plot(t[0:len(t):100], rP2[0:len(t):100], color=color_list[1], linestyle='dashed', linewidth=plot_line_width, label=r'$r_{P2}$')
-    plt.plot(t[0:len(t):100], rS1[0:len(t):100], color=color_list[2], linewidth=plot_line_width, label=r'$r_{S1}$')
-    plt.plot(t[0:len(t):100], rS2[0:len(t):100], color=color_list[2], linestyle='dashed', linewidth=plot_line_width, label=r'$r_{S2}$')
+    plt.plot(t[0:len(t):100], rE1[0:len(t):100], color=color_list[0], linewidth=plot_line_width,
+             label=r'difference in $r_{E1}$ is '+ str(np.round(-rE1[stim_time-2] + rE1[-2], 4)))
+    plt.plot(t[0:len(t):100], rE2[0:len(t):100], color=color_list[0], linestyle='dashed', linewidth=plot_line_width,
+             label=r'difference in $r_{E2}$ is '+ str(np.round(-rE2[stim_time-2] + rE2[-2], 4)))
+    plt.plot(t[0:len(t):100], rP1[0:len(t):100], color=color_list[1], linewidth=plot_line_width,
+             label=r'$r_{P1}$')
+    plt.plot(t[0:len(t):100], rP2[0:len(t):100], color=color_list[1], linestyle='dashed', linewidth=plot_line_width,
+             label=r'$r_{P2}$')
+    plt.plot(t[0:len(t):100], rS1[0:len(t):100], color=color_list[2], linewidth=plot_line_width,
+             label=r'$r_{S1}$')
+    plt.plot(t[0:len(t):100], rS2[0:len(t):100], color=color_list[2], linestyle='dashed', linewidth=plot_line_width,
+             label=r'$r_{S2}$')
 
 
     plt.xticks(fontsize=font_size_1, **hfont)
@@ -761,10 +782,14 @@ def plot_all_mass(t, vars, plas_terms, stim_start, stim_stop, stim_strength_E, d
     plt.tick_params(width=line_width, length=tick_len)
     plt.axvspan(stim_start, stim_stop, color='red', alpha=0.3, label="Stimulus of " + str(stim_strength_E))
 
-    plt.plot(t[0:len(t):100], J_EE11[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EE}^{11}$: ' + str(np.round(J_EE11[-1], 3)))
-    plt.plot(t[0:len(t):100], J_EE12[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EE}^{12}$: ' + str(np.round(J_EE12[-1], 3)))
-    plt.plot(t[0:len(t):100], J_EE21[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EE}^{21}$: ' + str(np.round(J_EE21[-1], 3)))
-    plt.plot(t[0:len(t):100], J_EE22[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EE}^{22}$: ' + str(np.round(J_EE22[-1], 3)))
+    plt.plot(t[0:len(t):100], J_EE11[0:len(t):100], linewidth=plot_line_width,
+             label=r'final $J_{EE}^{11}$: ' + str(np.round(J_EE11[-1], 3)))
+    plt.plot(t[0:len(t):100], J_EE12[0:len(t):100], linewidth=plot_line_width,
+             label=r'final $J_{EE}^{12}$: ' + str(np.round(J_EE12[-1], 3)))
+    plt.plot(t[0:len(t):100], J_EE21[0:len(t):100], linewidth=plot_line_width,
+             label=r'final $J_{EE}^{21}$: ' + str(np.round(J_EE21[-1], 3)))
+    plt.plot(t[0:len(t):100], J_EE22[0:len(t):100], linewidth=plot_line_width,
+             label=r'final $J_{EE}^{22}$: ' + str(np.round(J_EE22[-1], 3)))
 
     plt.xticks(fontsize=font_size_1, **hfont)
     plt.yticks(fontsize=font_size_1, **hfont)
@@ -791,10 +816,14 @@ def plot_all_mass(t, vars, plas_terms, stim_start, stim_stop, stim_strength_E, d
     plt.tick_params(width=line_width, length=tick_len)
     plt.axvspan(stim_start, stim_stop, color='red', alpha=0.3, label="Stimulus of " + str(stim_strength_E))
 
-    plt.plot(t[0:len(t):100], J_EP11[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EP}^{11}$: ' + str(np.round(J_EP11[-1], 3)))
-    plt.plot(t[0:len(t):100], J_EP12[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EP}^{12}$: ' + str(np.round(J_EP12[-1], 3)))
-    plt.plot(t[0:len(t):100], J_EP21[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EP}^{21}$: ' + str(np.round(J_EP21[-1], 3)))
-    plt.plot(t[0:len(t):100], J_EP22[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{EP}^{22}$: ' + str(np.round(J_EP22[-1], 3)))
+    plt.plot(t[0:len(t):100], J_EP11[0:len(t):100], linewidth=plot_line_width,
+             label=r'final $J_{EP}^{11}$: ' + str(np.round(J_EP11[-1], 3)))
+    plt.plot(t[0:len(t):100], J_EP12[0:len(t):100], linewidth=plot_line_width,
+             label=r'final $J_{EP}^{12}$: ' + str(np.round(J_EP12[-1], 3)))
+    plt.plot(t[0:len(t):100], J_EP21[0:len(t):100], linewidth=plot_line_width,
+             label=r'final $J_{EP}^{21}$: ' + str(np.round(J_EP21[-1], 3)))
+    plt.plot(t[0:len(t):100], J_EP22[0:len(t):100], linewidth=plot_line_width,
+             label=r'final $J_{EP}^{22}$: ' + str(np.round(J_EP22[-1], 3)))
 
     plt.xticks(fontsize=font_size_1, **hfont)
     plt.yticks(fontsize=font_size_1, **hfont)
@@ -821,10 +850,14 @@ def plot_all_mass(t, vars, plas_terms, stim_start, stim_stop, stim_strength_E, d
     plt.tick_params(width=line_width, length=tick_len)
     plt.axvspan(stim_start, stim_stop, color='red', alpha=0.3, label="Stimulus of " + str(stim_strength_E))
 
-    plt.plot(t[0:len(t):100], J_DS11[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{DS}^{11}$: ' + str(np.round(J_DS11[-1], 3)))
-    plt.plot(t[0:len(t):100], J_DS12[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{DS}^{12}$: ' + str(np.round(J_DS12[-1], 3)))
-    plt.plot(t[0:len(t):100], J_DS21[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{DS}^{21}$: ' + str(np.round(J_DS21[-1], 3)))
-    plt.plot(t[0:len(t):100], J_DS22[0:len(t):100], linewidth=plot_line_width, label=r'final $J_{DS}^{22}$: ' + str(np.round(J_DS22[-1], 3)))
+    plt.plot(t[0:len(t):100], J_DS11[0:len(t):100], linewidth=plot_line_width,
+             label=r'final $J_{DS}^{11}$: ' + str(np.round(J_DS11[-1], 3)))
+    plt.plot(t[0:len(t):100], J_DS12[0:len(t):100], linewidth=plot_line_width,
+             label=r'final $J_{DS}^{12}$: ' + str(np.round(J_DS12[-1], 3)))
+    plt.plot(t[0:len(t):100], J_DS21[0:len(t):100], linewidth=plot_line_width,
+             label=r'final $J_{DS}^{21}$: ' + str(np.round(J_DS21[-1], 3)))
+    plt.plot(t[0:len(t):100], J_DS22[0:len(t):100], linewidth=plot_line_width,
+             label=r'final $J_{DS}^{22}$: ' + str(np.round(J_DS22[-1], 3)))
 
     plt.xticks(fontsize=font_size_1, **hfont)
     plt.yticks(fontsize=font_size_1, **hfont)
@@ -849,19 +882,25 @@ def plot_all_mass(t, vars, plas_terms, stim_start, stim_stop, stim_strength_E, d
     for axis in ['top', 'bottom', 'left', 'right']:
         ax.spines[axis].set_linewidth(line_width)
     plt.tick_params(width=line_width, length=tick_len)
-    plt.axvspan(stim_start, stim_stop, color='red', alpha=0.3, label="Stimulus between " + str(stim_start) + str(-stim_stop))
+    plt.axvspan(stim_start, stim_stop, color='red', alpha=0.3,
+                label="Stimulus between " + str(stim_start) + str(-stim_stop))
 
-    plt.plot(t[0:len(t):100], plas_terms[-4][0:len(t):100], color=color_list[0], linewidth=plot_line_width, label=r'$LR_{EE11}$')
-    plt.plot(t[0:len(t):100], plas_terms[-3][0:len(t):100], color=color_list[2], linewidth=plot_line_width, label=r'$LR_{EE12}$')
-    plt.plot(t[0:len(t):100], plas_terms[-2][0:len(t):100], color=color_list[1], linewidth=plot_line_width, label=r'$LR_{EE21}$')
-    plt.plot(t[0:len(t):100], plas_terms[-1][0:len(t):100], color=color_list[3], linewidth=plot_line_width, label=r'$LR_{EE22}$')
+    plt.plot(t[0:len(t):100], plas_terms[-4][0:len(t):100], color=color_list[0],
+             linewidth=plot_line_width,
+             label=r'$LR_{EE11}$')
+    plt.plot(t[0:len(t):100], plas_terms[-3][0:len(t):100], color=color_list[2], linewidth=plot_line_width,
+             label=r'$LR_{EE12}$')
+    plt.plot(t[0:len(t):100], plas_terms[-2][0:len(t):100], color=color_list[1], linewidth=plot_line_width,
+             label=r'$LR_{EE21}$')
+    plt.plot(t[0:len(t):100], plas_terms[-1][0:len(t):100], color=color_list[3], linewidth=plot_line_width,
+             label=r'$LR_{EE22}$')
 
     plt.xticks(fontsize=font_size_1, **hfont)
     plt.yticks(fontsize=font_size_1, **hfont)
 
     #plt.ylim([0, 1.2])
     #plt.yticks(np.arange(0, 1.21, .20), [0, .20, .40, .60, .80, 1, 1.2], fontsize=font_size_1, **hfont)
-    #plt.xlim([1, 500])
+    plt.xlim([1,30])
     plt.xlabel('Time (s)', fontsize=font_size_1, **hfont)
     plt.ylabel('Learning rate', fontsize=font_size_1, **hfont)
     plt.title(title, fontsize=font_size_1, **hfont)
@@ -935,7 +974,9 @@ def create_save_noise_2D(N_PC,N_PV,N_SOM,t,noise_strength,path):
 
     pickle.dump(noises, open(path, 'wb'))
 
-def create_save_weights_2D(N_PC,N_PV,N_SOM,weight_strengths,weight_probabilities,uniform_distribution=0,path=None,save_weigths=0):
+def create_save_weights_2D(N_PC,N_PV,N_SOM,weight_strengths,
+                           weight_probabilities,uniform_distribution=0,
+                           path=None,save_weigths=0):
     s_EE11, s_EE12, s_DE11, s_DE12, s_DS11, s_EP11, s_PE11, s_SE11, s_PS11, s_PP11, \
     s_DS12, s_EP12, s_PE12, s_SE12, s_PS12, s_PP12, \
     s_EE21, s_EE22, s_DE22, s_DE21, s_DS21, s_EP21, s_PE21, s_SE21, s_PS21, s_PP21, \

@@ -2,23 +2,24 @@ import numpy as np
 from numba import cuda, jit
 import matplotlib.pyplot as plt
 from util import *
+import sys
 from model import *
 import os
 
 def analyze_model_plasticity_based_on_current_all_mass():
     directory = os.getcwd()
-    sim_duration = 8000  # s
+    sim_duration = 10000  # s
     delta_t = 0.0001  # s
     timepoints = int(sim_duration * (1 / delta_t))
     t = np.linspace(0, sim_duration, timepoints)
     stim_start = 5
     stim_stop = 10
-    stim_strength_E = 2
+    stim_strength_E = 1
     stim_strength_P = .5
     stim_strengths = (stim_strength_E,stim_strength_P)
     upper_bound_E = .6
-    upper_bound_P = .8
-    upper_bound_S = .8
+    upper_bound_P = 1
+    upper_bound_S = 1
     upper_bounds = (upper_bound_E,upper_bound_P,upper_bound_S)
 
     rE1 = np.zeros(timepoints); rE2 = np.zeros(timepoints)
@@ -54,9 +55,9 @@ def analyze_model_plasticity_based_on_current_all_mass():
     tau_P = 0.005  # s
     tau_S = 0.01  # s
     tau_plas = 100 # ms
-    tau_scaling = 1e4 # ms
-    tau_theta = 1e3 # ms
-    tau_LR = 2 # ms
+    tau_scaling = 500 # ms
+    tau_theta = 20 # ms
+    tau_LR = 750 # ms
     taus = (tau_E, tau_P, tau_S, tau_plas, tau_scaling, tau_theta, tau_LR)
 
     lambda_D = 0.27; lambda_E = 0.31
@@ -66,7 +67,7 @@ def analyze_model_plasticity_based_on_current_all_mass():
     rheobases = (rheobase_E, rheobase_P, rheobase_S)
 
     # background inputs
-    x_E = 4
+    x_E = 4.5
     x_P = 3
     x_S = 3
     back_inputs = (x_E, x_P, x_S)
@@ -80,14 +81,14 @@ def analyze_model_plasticity_based_on_current_all_mass():
     w_PS11, w_PS12, w_PS21, w_PS22 = .3, .1, .1, .3
     w_PP11, w_PP12, w_PP21, w_PP22 = .2, .1, .1, .2
 
-    """w_EE11, w_EE12, w_EE21, w_EE22 = .5,.45,.45,.5
-    w_DE11, w_DE12, w_DE21, w_DE22 = .5,.45,.45,.5
-    w_DS11, w_DS12, w_DS21, w_DS22 = .9,.15,.15,.9
-    w_EP11, w_EP12, w_EP21, w_EP22 = .9,.15,.15,.9
-    w_PE11, w_PE12, w_PE21, w_PE22 = .9,.3,.3,.9
-    w_SE11, w_SE12, w_SE21, w_SE22 = .4,.15,.15,.4
-    w_PS11, w_PS12, w_PS21, w_PS22 = .3,.25,.25,.3
-    w_PP11, w_PP12, w_PP21, w_PP22 = .3,.15,.15,.3"""
+    """w_DE11, w_DE12, w_DE21, w_DE22 = .4, .3, .3, .4
+    w_EE11, w_EE12, w_EE21, w_EE22 = .4, .3, .3, .4
+    w_DS11, w_DS12, w_DS21, w_DS22 = .5, .2, .2, .5
+    w_EP11, w_EP12, w_EP21, w_EP22 = .5, .2, .2, .5
+    w_PE11, w_PE12, w_PE21, w_PE22 = .3, .1, .1, .3
+    w_SE11, w_SE12, w_SE21, w_SE22 = .4, .1, .1, .4
+    w_PS11, w_PS12, w_PS21, w_PS22 = .3, .1, .1, .3
+    w_PP11, w_PP12, w_PP21, w_PP22 = .2, .1, .1, .2"""
 
     weights = (
         w_EE11, w_EE12, w_DE11, w_DE12, w_DS11, w_EP11, w_PE11, w_SE11,
@@ -97,10 +98,10 @@ def analyze_model_plasticity_based_on_current_all_mass():
 
     LR_E01,LR_E02 = 1,1
     learning_rates = (LR_E01, LR_E02)
-    adaptive_LR_method = "decay_after_stim"
-    synaptic_scaling_method = "subtractive"
+    adaptive_LR_method = "3-factor"
+    synaptic_scaling_method = "multiplicative"
     synaptic_scaling_update_method = "every_timestep"
-    synaptic_scaling_compare_method = "all"
+    synaptic_scaling_compare_method = "individual"
 
     BCM_p = 1
     threshold_ss = .07
@@ -117,10 +118,14 @@ def analyze_model_plasticity_based_on_current_all_mass():
 
     flags_list = [(1,1,1,1,1),(1,0,0,1,1),(1,1,1,1,0),(1,1,1,0,1)]
     flags_list = [(1,0,0,0,0),(1,0,0,0,1)]
-    flags_list = [(1,0,0,1,1),(1,1,1,1,1),(1,1,1,0,1)]
+    flags_list = [(1,1,1,1,1),(1,0,0,1,1),(1,1,1,0,1)]
+    orig_stdout = sys.stdout
+    f = open(directory + r"\png\explore2\back_to_the_future\\" + '0values.txt', 'w')
+    sys.stdout = f
 
     for flags in flags_list:
         name, title = determine_name(flags)
+        print("*****", name)
         model_plasticity_based_on_current_all_mass(delta_t, vars, plas_terms, t, weights,
                                                    back_inputs, stim_strengths, stim_start, stim_stop, taus, lambdas,
                                                    rheobases, upper_bounds, learning_rates, adaptive_LR_method,
@@ -128,13 +133,15 @@ def analyze_model_plasticity_based_on_current_all_mass():
                                                    BCM_p, threshold_ss, ss_exponential, flags=flags)
 
         plot_all_mass(t, vars, plas_terms, stim_start, stim_stop, stim_strength_E, delta_t,
-                      r"\explore2\compare_all_deneme\a\\" + name, title)
+                      r"\explore2\back_to_the_future\\" + name, title)
 
         # show_plot_currents_mass(av_I1,av_I2,t,stim_start)
     save_params([weights, back_inputs, stim_strengths, taus, lambdas, rheobases, upper_bounds,
                  learning_rates, adaptive_LR_method, synaptic_scaling_method,
                  synaptic_scaling_update_method, synaptic_scaling_compare_method,
                  BCM_p, threshold_ss, ss_exponential],
-                directory + r"\png\explore2\compare_all_deneme\a\\" + name)
+                directory + r"\png\explore2\back_to_the_future\\" + name)
 
+    sys.stdout = orig_stdout
+    f.close()
 analyze_model_plasticity_based_on_current_all_mass()
