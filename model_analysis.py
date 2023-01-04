@@ -1,5 +1,4 @@
 import numpy as np
-from numba import cuda, jit
 import matplotlib.pyplot as plt
 from util import *
 import sys

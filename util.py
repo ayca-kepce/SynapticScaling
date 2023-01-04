@@ -1,9 +1,9 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import pickle
-from numba import cuda, jit, njit
+"""from numba import cuda, jit, njit
 import numba as nb
-from numba.types import float64, int64, ListType, List
+from numba.types import float64, int64, ListType, List"""
 import seaborn as sns
 
 def connection_probability(weights, probability, strength):
@@ -1100,19 +1100,3 @@ def save_values(vars, plas_terms, name):
                      str(np.min(plas_terms[7])))
 
 
-
-
-#@jit(float64[:,:](float64[:,:,:], int64),nopython=True)
-#@jit('void(List(float64))', nopython=True)
-
-@nb.njit
-def round_array(x):
-    x = x + 5
-    return x
-
-@jit(nopython=True)
-def apply_hard_bound(array, lower_bound, upper_bound):
-    for row in array:
-        row[row < lower_bound] = lower_bound
-        row[row > upper_bound] = upper_bound
-    return array

@@ -10,12 +10,12 @@ and "x_S".
 """
 
 import numpy as np
-from numba import cuda, jit
+#from numba import cuda, jit
 import matplotlib.pyplot as plt
 from util import *
 
 #@jit((float16[:], float16[:], float16[:], float16[:], int16, float[:]),nopython=True)
-@jit(nopython=True)
+#@jit(nopython=True)
 def model_plasticity_based_on_current_all_mass(delta_t, vars, plas_terms,t, weights, back_inputs,
                                 stim_strengths, stim_start, stim_stop, taus, lambdas, rheobases, upper_bounds,
                                 learning_rates, adaptive_LR_method = "sum", synaptic_scaling_method = "subtractive",
