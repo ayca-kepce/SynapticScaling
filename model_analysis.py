@@ -5,9 +5,9 @@ import sys
 from model import *
 import os
 
-def analyze_model_plasticity_based_on_current_all_mass():
+def analyze_model():
     directory = os.getcwd()
-    sim_duration = 10000  # s
+    sim_duration = 250  # s
     delta_t = 0.0001  # s
     timepoints = int(sim_duration * (1 / delta_t))
     t = np.linspace(0, sim_duration, timepoints)
@@ -16,7 +16,7 @@ def analyze_model_plasticity_based_on_current_all_mass():
     stim_strength_E = 1
     stim_strength_P = .5
     stim_strengths = (stim_strength_E,stim_strength_P)
-    upper_bound_E = .6
+    upper_bound_E = 5
     upper_bound_P = 1
     upper_bound_S = 1
     upper_bounds = (upper_bound_E,upper_bound_P,upper_bound_S)
@@ -54,7 +54,7 @@ def analyze_model_plasticity_based_on_current_all_mass():
     tau_P = 0.005  # s
     tau_S = 0.01  # s
     tau_plas = 100 # ms
-    tau_scaling = 500 # ms
+    tau_scaling = 1000 # ms
     tau_theta = 20 # ms
     tau_LR = 750 # ms
     taus = (tau_E, tau_P, tau_S, tau_plas, tau_scaling, tau_theta, tau_LR)
@@ -116,31 +116,88 @@ def analyze_model_plasticity_based_on_current_all_mass():
              adaptive_threshold_flag, adaptive_LR_flag)
 
     flags_list = [(1,1,1,1,1),(1,0,0,1,1),(1,1,1,1,0),(1,1,1,0,1)]
-    flags_list = [(1,0,0,0,0),(1,0,0,0,1)]
-    flags_list = [(1,1,1,1,1),(1,0,0,1,1),(1,1,1,0,1)]
-    orig_stdout = sys.stdout
+    flags_list = [(1,0,0,0,1),(1,1,1,1,1),(1,0,0,1,1),(1,1,1,0,1)]
+    flags_list = [(1,0,0,1,0)]
+
+    """orig_stdout = sys.stdout
     f = open(directory + r"\png\explore2\back_to_the_future\\" + '0values.txt', 'w')
-    sys.stdout = f
+    sys.stdout = f"""
 
     for flags in flags_list:
         name, title = determine_name(flags)
         print("*****", name)
-        model_plasticity_based_on_current_all_mass(delta_t, vars, plas_terms, t, weights,
+        model(delta_t, vars, plas_terms, t, weights,
                                                    back_inputs, stim_strengths, stim_start, stim_stop, taus, lambdas,
                                                    rheobases, upper_bounds, learning_rates, adaptive_LR_method,
                                                    synaptic_scaling_method, synaptic_scaling_update_method, synaptic_scaling_compare_method,
                                                    BCM_p, threshold_ss, ss_exponential, flags=flags)
 
-        plot_all_mass(t, vars, plas_terms, stim_start, stim_stop, stim_strength_E, delta_t,
-                      r"\explore2\back_to_the_future\\" + name, title)
+        """plot_all_mass(t, vars, plas_terms, stim_start, stim_stop, stim_strength_E, delta_t,
+                      r"\explore2\back_to_the_future\\" + name, title)"""
+
+        # plotting configuration
+        ratio = 1.5
+        figure_len, figure_width = 15 * ratio, 12 * ratio
+        font_size_1, font_size_2 = 36 * ratio, 36 * ratio
+        legend_size = 18 * ratio
+        line_width, tick_len = 3 * ratio, 12 * ratio
+        marker_size = 15 * ratio
+        marker_edge_width = 3 * ratio
+        plot_line_width = 5 * ratio
+        hfont = {'fontname': 'Arial'}
+
+        sns.set(style='ticks')
+        pal = sns.color_palette()
+        color_list = pal.as_hex()
+        b_plot_entire = True
+        stim_time = int(stim_start * (1 / delta_t))
+        xmin = 0.1
+        xmax = 250
+
+        # plot here
+        ymin = 0
+        ymax = 5
+        stim_label_y = (ymax - ymin) * .95
+        plt.figure(figsize=(figure_len, figure_width))
+        ax = plt.gca()
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['bottom'].set_visible(True)
+        ax.spines['left'].set_visible(True)
+        for axis in ['top', 'bottom', 'left', 'right']:
+            ax.spines[axis].set_linewidth(line_width)
+        plt.tick_params(width=line_width, length=tick_len)
+        plt.axvspan(stim_start, stim_stop, color='gray', alpha=0.1)
+        plt.text(7.5, stim_label_y, 'stimulus', fontsize=font_size_1,
+                 horizontalalignment='center')
+
+        plt.plot(t[0:len(t):200], plas_terms[6][0:len(t):200], 'r')
+        plt.plot(t[0:len(t):200], rE1[0:len(t):200], 'b')
+        plt.plot(t[0:len(t):200], plas_terms[7][0:len(t):200], 'r', linestyle='dashed')
+        plt.plot(t[0:len(t):200], rE2[0:len(t):200], 'b', linestyle='dashed', )
+
+        plt.xticks(fontsize=font_size_1, **hfont)
+        plt.yticks(fontsize=font_size_1, **hfont)
+
+        plt.ylim([ymin, ymax])
+        plt.yticks([0, 1, 2, 3, 4, 5], fontsize=font_size_1, **hfont)
+        plt.xlim([xmin, xmax])
+        plt.xlabel('Time (s)', fontsize=font_size_1, **hfont)
+        plt.ylabel('Firing rate', fontsize=font_size_1, **hfont)
+        plt.title(title, fontsize=font_size_1, **hfont)
+        ax.legend(fontsize=font_size_1, loc='upper right')
+
+        plt.savefig('png/' + name + '_thetaANDactivity.png')
+        plt.close()
+
 
         # show_plot_currents_mass(av_I1,av_I2,t,stim_start)
-    save_params([weights, back_inputs, stim_strengths, taus, lambdas, rheobases, upper_bounds,
+    """save_params([weights, back_inputs, stim_strengths, taus, lambdas, rheobases, upper_bounds,
                  learning_rates, adaptive_LR_method, synaptic_scaling_method,
                  synaptic_scaling_update_method, synaptic_scaling_compare_method,
                  BCM_p, threshold_ss, ss_exponential],
                 directory + r"\png\explore2\back_to_the_future\\" + name)
 
     sys.stdout = orig_stdout
-    f.close()
-analyze_model_plasticity_based_on_current_all_mass()
+    f.close()"""
+analyze_model()
