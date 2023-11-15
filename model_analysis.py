@@ -108,16 +108,14 @@ def analyze_model(hour_sim, run_simulation=True, save_results = False, plot_resu
     back_inputs = (g_E, g_P, g_S, g_top_down_to_S)
 
     # K parameter in target regulator equation, it tunes the steady state value of target activity and its regulator
-    K = 0.5
+    K = 0
 
     # Initial conditions for plastic weights
-    w_EP_within = 0.55; w_EP_cross = 0.21
-    w_ES_within = 0.70; w_ES_cross = 0.21
+    w_EP_within = 0.7; w_EP_cross = 0.21
+    w_ES_within = 0.7; w_ES_cross = 0.21
     w_EE_within = 0.4 ; w_EE_cross = 0.3
-    print('wEP and wES changed from 0.7')
 
     # Weights
-    print('wEE changed from 0.4 and 0.3')
     w_PE_within = 0.3; w_PE_cross = 0.1
     w_PP_within = 0.2; w_PP_cross = 0.1
     w_PS_within = 0.3; w_PS_cross = 0.1
@@ -140,15 +138,17 @@ def analyze_model(hour_sim, run_simulation=True, save_results = False, plot_resu
 
     # ToDo explain
 
-    flags_list = [(1, 1, 1, 1, 1, 1), (1, 0, 1, 1, 1, 1), (1, 1, 0, 1, 1, 1), (1, 1, 1, 0, 1, 1),
-                  (1, 1, 0, 0, 1, 1), (1, 0, 1, 0, 1, 1)]#, (1, 0, 0, 1, 1, 1)]
+
     flags_list = [(1, 1, 1, 1, 1, 1),(1, 0, 1, 1, 1, 1)]
-    flags_list = [(1, 1, 0, 0, 1, 1)]
+
+    flags_list = [(1, 0, 0, 1, 1, 1)]
+    flags_list = [(1, 1, 1, 1, 1, 1), (1, 0, 1, 1, 1, 1), (1, 1, 0, 1, 1, 1), (1, 1, 1, 0, 1, 1),
+                  (1, 1, 0, 0, 1, 1), (1, 0, 1, 0, 1, 1)]  # , (1, 0, 0, 1, 1, 1)]
     flags_theta = (1, 1)
 
     for flags in flags_list:
         id, name, title = determine_name(flags)
-        name = 'Case' + id + str(hour_sim) + 'h' #+ '_td' + str(g_top_down_to_S) + '_k' + str(K) #+ '_TauS-ss' + str(tau_scaling_E)
+        name = 'Case' + id + str(hour_sim) + 'h' #+ '_k' + str(K) #+ '_td' + str(g_top_down_to_S) #+ '_TauS-ss' + str(tau_scaling_E)
         print('*****', title, '*****')
 
         if run_simulation:
@@ -191,7 +191,7 @@ def analyze_model(hour_sim, run_simulation=True, save_results = False, plot_resu
 
 
 def span_initial_conditions(flag_case, hour_sim_case, g_top_down_to_S = 0, K = 0.5,
-                            search_wEP_wES=1, search_wEE_wEP=0, search_wEE_wES=0,
+                            search_wEP_wES=0, search_wEE_wEP=0, search_wEE_wES=0,
                             run_search=0, plot_results=1):
     """
     :param hour_sim: Defines how many hours does the simulation lasts
@@ -206,7 +206,7 @@ def span_initial_conditions(flag_case, hour_sim_case, g_top_down_to_S = 0, K = 0
 
     # Data and plotting directories are defined
     directory = r'C:\Users\AYCA\PycharmProjects\SynapticScaling' #os.getcwd()
-    dir_data = directory + r'\data\all\span_initial_cond\\'
+    dir_data = r'E:\data_domain\wEPwES_yedek\\'
     dir_plot = directory + r'\png\solving_it\10_corrected_eqs\all\span_initial_cond\\'
 
     n = 21 # the number of different values for each weight
@@ -377,7 +377,7 @@ def span_initial_conditions(flag_case, hour_sim_case, g_top_down_to_S = 0, K = 0
                 for w_EP_within in wEP_withins:
                     # If the dot is out of the operating regime (either LTD is induced during conditioning and/or the
                     # firing rates goes to zero)
-                    degeneracy = not op_region_binary[dot] or min_r[dot] < 0.005
+                    degeneracy = op_region_binary[dot] or min_r[dot] < 0.005
                     if np.round(w_EP_within,3)==0.55 and np.round(w_ES_within,3)==0.7:
                         print(max_E[dot])
                         print(max_E[dot])
@@ -481,7 +481,7 @@ def span_initial_conditions(flag_case, hour_sim_case, g_top_down_to_S = 0, K = 0
                 for w_EP_within in wEP_withins:
                     for w_EE_within in wEE_withins:
                         # Weights
-                        w_ES_within = 0.7; w_ES_cross = w_ES_within * cross_within_ratio
+                        w_ES_within = 0.7; w_ES_cross = 0.21
                         w_PE_within = 0.3; w_PE_cross = 0.1
                         w_PP_within = 0.2; w_PP_cross = 0.1
                         w_PS_within = 0.3; w_PS_cross = 0.1
@@ -516,7 +516,7 @@ def span_initial_conditions(flag_case, hour_sim_case, g_top_down_to_S = 0, K = 0
                 print('\n')
             print('\n')
 
-        # Plotting the memory specificity results for every initial condition pair of wEP and wES if plot_results is True
+        # Plotting the memory specificity results for every initial condition pair of wEE and wEP if plot_results is True
         if plot_results:
             # Reading the results
             with open(dir_data + 'wEEwEP_' + name + '.pkl', 'rb') as file:
@@ -549,7 +549,7 @@ def span_initial_conditions(flag_case, hour_sim_case, g_top_down_to_S = 0, K = 0
 
             # The span of the initial conditions to determine the memory specificity is started
             dot = 0 # every initial condition pair is called as one dot on the initial condition space
-            res_mem_spec = [] # array to hold memory specificity results at each initial condition pair of wEP and wES
+            res_mem_spec = [] # array to hold memory specificity results at each initial condition pair of wEE and wEP
             for w_EP_within in wEP_withins:
                 for w_EE_within in wEE_withins:
                     # If the dot is out of the operating regime (either LTD is induced during conditioning and/or the
@@ -652,7 +652,7 @@ def span_initial_conditions(flag_case, hour_sim_case, g_top_down_to_S = 0, K = 0
                 for w_ES_within in wES_withins:
                     for w_EE_within in wEE_withins:
                         # Weights
-                        w_EP_within = 0.7; w_EP_cross = w_EP_within * cross_within_ratio
+                        w_EP_within = 0.7; w_EP_cross = 0.21
                         w_PE_within = 0.3; w_PE_cross = 0.1
                         w_PP_within = 0.2; w_PP_cross = 0.1
                         w_PS_within = 0.3; w_PS_cross = 0.1
@@ -686,7 +686,7 @@ def span_initial_conditions(flag_case, hour_sim_case, g_top_down_to_S = 0, K = 0
                 print('\n')
             print('\n')
 
-        # Plotting the memory specificity results for every initial condition pair of wEP and wES if plot_results is True
+        # Plotting the memory specificity results for every initial condition pair of wEE and wES if plot_results is True
         if plot_results:
             # Reading the results
             with open(dir_data + 'wEEwES_' + name + '.pkl', 'rb') as file:
@@ -719,7 +719,7 @@ def span_initial_conditions(flag_case, hour_sim_case, g_top_down_to_S = 0, K = 0
 
             # The span of the initial conditions to determine the memory specificity is started
             dot = 0 # every initial condition pair is called as one dot on the initial condition space
-            res_mem_spec = [] # array to hold memory specificity results at each initial condition pair of wEP and wES
+            res_mem_spec = [] # array to hold memory specificity results at each initial condition pair of wEE and wES
             for w_ES_within in wES_withins:
                 for w_EE_within in wEE_withins:
                     # If the dot is out of the operating regime (either LTD is induced during conditioning and/or the
@@ -750,14 +750,14 @@ def span_initial_conditions(flag_case, hour_sim_case, g_top_down_to_S = 0, K = 0
             x_title = '$W_{E_{1}_{E_{1}}$'
             y_title = '$W_{E_{1}_{S_{1}}$'
             plot_span_init_conds(res_mem_spec, wEE_withins, wES_withins, x_title, y_title,
-                                 dir_plot, name, n, plot_bars=0, plot_legends=0, format='.png', title=title)
+                                 dir_plot, 'wEEwES_' + name, n, plot_bars=0, plot_legends=0, format='.png', title=title)
             plot_span_init_conds(res_mem_spec, wEE_withins, wES_withins, x_title, y_title,
-                                 dir_plot, name, n, plot_bars=0, plot_legends=0, format='.svg', title=title)
+                                 dir_plot, 'wEEwES_' + name, n, plot_bars=0, plot_legends=0, format='.svg', title=title)
 
 
 
 #analyze_model(4,   run_simulation=0, save_results=1, plot_results=1)
 #analyze_model(2.4,  run_simulation=1, save_results=0, plot_results=1)
-#analyze_model(24,  run_simulation=0, save_results=1, plot_results=1)
+analyze_model(48,  run_simulation=0, save_results=1, plot_results=1)
 
 #span_initial_conditions((1, 1, 0, 0, 1, 1), 4.8, search_wEP_wES=1, g_top_down_to_S = 0, run_search=0, plot_results=1)
