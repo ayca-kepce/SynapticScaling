@@ -56,9 +56,9 @@ def determine_name(flags):
 
 
 
-def plot_all(t, res_rates, res_weights, p_threshold, stim_times, name, hour_sim, format='.svg'):
+def plot_all(t, res_rates, res_weights, av_threshold, stim_times, name, hour_sim, format='.svg'):
 
-    (t_stimulation, t_simulation) = t
+    (l_time_points_stim, l_time_points_phase2) = t
     (r_phase1, r_phase2, r_phase3, max_E) = res_rates
     (J_EE_phase1, J_phase2) = res_weights
 
@@ -123,15 +123,15 @@ def plot_all(t, res_rates, res_weights, p_threshold, stim_times, name, hour_sim,
         plt.tick_params(width=line_width, length=tick_len)
         plt.axvspan(stim_times[0][0], stim_times[0][1], color='gray', alpha=0.15)
 
-        p1, = ax.plot(t_stimulation, rP1, color=color_list[2], linewidth=plot_line_width)
-        p2, = ax.plot(t_stimulation, rP2, color=color_list[3], linewidth=plot_line_width)
-        s1, = ax.plot(t_stimulation, rS1, color=color_list[4], linewidth=plot_line_width)
-        s2, = ax.plot(t_stimulation, rS2, color=color_list[5], linewidth=plot_line_width)
-        e1, = ax.plot(t_stimulation, rE1, color=color_list[0], linewidth=plot_line_width, label=r'$r_{E1}$')
-        e2, = ax.plot(t_stimulation, rE2, color=color_list[1], linewidth=plot_line_width, label=r'$r_{E2}$')
-        r_at, = plt.plot(t_simulation, p_threshold * np.ones_like(t_simulation), dash_capstyle='round',
+        p1, = ax.plot(l_time_points_stim, rP1, color=color_list[2], linewidth=plot_line_width)
+        p2, = ax.plot(l_time_points_stim, rP2, color=color_list[3], linewidth=plot_line_width)
+        s1, = ax.plot(l_time_points_stim, rS1, color=color_list[4], linewidth=plot_line_width)
+        s2, = ax.plot(l_time_points_stim, rS2, color=color_list[5], linewidth=plot_line_width)
+        e1, = ax.plot(l_time_points_stim, rE1, color=color_list[0], linewidth=plot_line_width, label=r'$r_{E1}$')
+        e2, = ax.plot(l_time_points_stim, rE2, color=color_list[1], linewidth=plot_line_width, label=r'$r_{E2}$')
+        r_at, = plt.plot(l_time_points_phase2, av_threshold * np.ones_like(l_time_points_phase2), dash_capstyle='round',
                          linestyle=line_style_r_at, color=color_list[0], linewidth=plot_line_width)
-        rb, = plt.plot(t_simulation, r_phase1[0][0] * np.ones_like(t_simulation), dash_capstyle='round',
+        rb, = plt.plot(l_time_points_phase2, r_phase1[0][0] * np.ones_like(l_time_points_phase2), dash_capstyle='round',
                        linestyle=line_style_rb, color=color_list[0], linewidth=plot_line_width*1.3)
 
         plt.xticks(fontsize=font_size_1, **hfont)
@@ -172,10 +172,10 @@ def plot_all(t, res_rates, res_weights, p_threshold, stim_times, name, hour_sim,
     plt.axvspan(stim_times[0][0], stim_times[0][1], color='gray', alpha=0.15)
 
 
-    wee11, = ax.plot(t_stimulation, J_EE_phase1[0], color=color_list[0], linewidth=plot_line_width)
-    wee12, = ax.plot(t_stimulation, J_EE_phase1[1], '--', color=color_list[0], linewidth=plot_line_width)
-    wee21, = ax.plot(t_stimulation, J_EE_phase1[2], color=color_list[1], linewidth=plot_line_width)
-    wee22, = ax.plot(t_stimulation, J_EE_phase1[3], '--', color=color_list[1], linewidth=plot_line_width)
+    wee11, = ax.plot(l_time_points_stim, J_EE_phase1[0], color=color_list[0], linewidth=plot_line_width)
+    wee12, = ax.plot(l_time_points_stim, J_EE_phase1[1], '--', color=color_list[0], linewidth=plot_line_width)
+    wee21, = ax.plot(l_time_points_stim, J_EE_phase1[2], color=color_list[1], linewidth=plot_line_width)
+    wee22, = ax.plot(l_time_points_stim, J_EE_phase1[3], '--', color=color_list[1], linewidth=plot_line_width)
 
 
     plt.xticks(fontsize=font_size_1, **hfont)
@@ -404,7 +404,7 @@ def plot_all(t, res_rates, res_weights, p_threshold, stim_times, name, hour_sim,
 
         # rates ALL
         xmin = 0
-        xmax = t_simulation[-1]
+        xmax = l_time_points_phase2[-1]
         ymin = 0
         ymax = 2.5
         plt.figure(figsize=(figure_width1, figure_len1))
@@ -417,15 +417,15 @@ def plot_all(t, res_rates, res_weights, p_threshold, stim_times, name, hour_sim,
             ax.spines[axis].set_linewidth(line_width)
         plt.tick_params(width=line_width, length=tick_len)
 
-        p1, = ax.plot(t_simulation, rP1, color=color_list[2], linewidth=plot_line_width)
-        p2, = ax.plot(t_simulation, rP2, color=color_list[3], linewidth=plot_line_width)
-        s1, = ax.plot(t_simulation, rS1, color=color_list[4], linewidth=plot_line_width)
-        s2, = ax.plot(t_simulation, rS2, color=color_list[5], linewidth=plot_line_width)
-        e1, = ax.plot(t_simulation, rE1, color=color_list[0], linewidth=plot_line_width)
-        e2, = ax.plot(t_simulation, rE2, color=color_list[1], linewidth=plot_line_width)
-        r_at, = plt.plot(t_simulation, p_threshold * np.ones_like(t_simulation), dash_capstyle='round',
+        p1, = ax.plot(l_time_points_phase2, rP1, color=color_list[2], linewidth=plot_line_width)
+        p2, = ax.plot(l_time_points_phase2, rP2, color=color_list[3], linewidth=plot_line_width)
+        s1, = ax.plot(l_time_points_phase2, rS1, color=color_list[4], linewidth=plot_line_width)
+        s2, = ax.plot(l_time_points_phase2, rS2, color=color_list[5], linewidth=plot_line_width)
+        e1, = ax.plot(l_time_points_phase2, rE1, color=color_list[0], linewidth=plot_line_width)
+        e2, = ax.plot(l_time_points_phase2, rE2, color=color_list[1], linewidth=plot_line_width)
+        r_at, = plt.plot(l_time_points_phase2, av_threshold * np.ones_like(l_time_points_phase2), dash_capstyle='round',
                          linestyle=line_style_r_at, color=color_list[0], linewidth=plot_line_width)
-        rb, = plt.plot(t_simulation, r_phase1[0][0] * np.ones_like(t_simulation), dash_capstyle='round',
+        rb, = plt.plot(l_time_points_phase2, r_phase1[0][0] * np.ones_like(l_time_points_phase2), dash_capstyle='round',
                        linestyle=line_style_rb, color=color_list[0], linewidth=plot_line_width*1.3)
 
         plt.vlines(4,  ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
@@ -454,7 +454,7 @@ def plot_all(t, res_rates, res_weights, p_threshold, stim_times, name, hour_sim,
 
         # rates E
         xmin = 0
-        xmax = t_simulation[-1]
+        xmax = l_time_points_phase2[-1]
         plt.figure(figsize=(figure_width1, figure_len1))
         ax = plt.gca()
         ax.spines['top'].set_visible(False)
@@ -465,11 +465,11 @@ def plot_all(t, res_rates, res_weights, p_threshold, stim_times, name, hour_sim,
             ax.spines[axis].set_linewidth(line_width)
         plt.tick_params(width=line_width, length=tick_len)
 
-        e1, = ax.plot(t_simulation, rE1, color=color_list[0], linewidth=plot_line_width)
-        e2, = ax.plot(t_simulation, rE2, color=color_list[1], linewidth=plot_line_width)
-        r_at, = plt.plot(t_simulation, p_threshold * np.ones_like(t_simulation), dash_capstyle='round',
+        e1, = ax.plot(l_time_points_phase2, rE1, color=color_list[0], linewidth=plot_line_width)
+        e2, = ax.plot(l_time_points_phase2, rE2, color=color_list[1], linewidth=plot_line_width)
+        r_at, = plt.plot(l_time_points_phase2, av_threshold * np.ones_like(l_time_points_phase2), dash_capstyle='round',
                          linestyle=line_style_r_at, color=color_list[0], linewidth=plot_line_width)
-        rb, = plt.plot(t_simulation, r_phase1[0][0] * np.ones_like(t_simulation), dash_capstyle='round',
+        rb, = plt.plot(l_time_points_phase2, r_phase1[0][0] * np.ones_like(l_time_points_phase2), dash_capstyle='round',
                        linestyle=line_style_rb, color=color_list[0], linewidth=plot_line_width*1.3)
 
         plt.vlines(4,  ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
@@ -497,7 +497,7 @@ def plot_all(t, res_rates, res_weights, p_threshold, stim_times, name, hour_sim,
 
         # rates P
         xmin = 0
-        xmax = t_simulation[-1]
+        xmax = l_time_points_phase2[-1]
         ymin = 0.75
         ymax = 1.25
         plt.figure(figsize=(figure_width2, figure_len2))
@@ -510,8 +510,8 @@ def plot_all(t, res_rates, res_weights, p_threshold, stim_times, name, hour_sim,
             ax.spines[axis].set_linewidth(line_width)
         plt.tick_params(width=line_width, length=tick_len)
 
-        p1, = ax.plot(t_simulation, rP1, color=color_list[2], linewidth=plot_line_width)
-        p2, = ax.plot(t_simulation, rP2, color=color_list[3], linewidth=plot_line_width)
+        p1, = ax.plot(l_time_points_phase2, rP1, color=color_list[2], linewidth=plot_line_width)
+        p2, = ax.plot(l_time_points_phase2, rP2, color=color_list[3], linewidth=plot_line_width)
 
         plt.vlines(4,  ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
         plt.vlines(24, ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
@@ -539,7 +539,7 @@ def plot_all(t, res_rates, res_weights, p_threshold, stim_times, name, hour_sim,
 
         # rates S
         xmin = 0
-        xmax = t_simulation[-1]
+        xmax = l_time_points_phase2[-1]
         ymin = 1.75
         ymax = 2.25
         plt.figure(figsize=(figure_width2, figure_len2))
@@ -552,8 +552,8 @@ def plot_all(t, res_rates, res_weights, p_threshold, stim_times, name, hour_sim,
             ax.spines[axis].set_linewidth(line_width)
         plt.tick_params(width=line_width, length=tick_len)
 
-        s1, = ax.plot(t_simulation, rS1, color=color_list[4], linewidth=plot_line_width)
-        s2, = ax.plot(t_simulation, rS2, color=color_list[5], linewidth=plot_line_width)
+        s1, = ax.plot(l_time_points_phase2, rS1, color=color_list[4], linewidth=plot_line_width)
+        s2, = ax.plot(l_time_points_phase2, rS2, color=color_list[5], linewidth=plot_line_width)
 
         plt.vlines(4,  ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
         plt.vlines(24, ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
@@ -579,7 +579,7 @@ def plot_all(t, res_rates, res_weights, p_threshold, stim_times, name, hour_sim,
 
         # thetas
         xmin = 0
-        xmax = t_simulation[-1]
+        xmax = l_time_points_phase2[-1]
         plt.figure(figsize=(figure_width1, figure_len1))
         ax = plt.gca()
         ax.spines['top'].set_visible(False)
@@ -590,11 +590,11 @@ def plot_all(t, res_rates, res_weights, p_threshold, stim_times, name, hour_sim,
             ax.spines[axis].set_linewidth(line_width)
         plt.tick_params(width=line_width, length=tick_len)
 
-        theta1, = ax.plot(t_simulation, r_phase2[6], color=color_list[0], linewidth=plot_line_width)
-        theta2, = ax.plot(t_simulation, r_phase2[7], color=color_list[1], linewidth=plot_line_width)
-        r_at, = plt.plot(t_simulation, p_threshold * np.ones_like(t_simulation), dash_capstyle='round',
+        theta1, = ax.plot(l_time_points_phase2, r_phase2[6], color=color_list[0], linewidth=plot_line_width)
+        theta2, = ax.plot(l_time_points_phase2, r_phase2[7], color=color_list[1], linewidth=plot_line_width)
+        r_at, = plt.plot(l_time_points_phase2, av_threshold * np.ones_like(l_time_points_phase2), dash_capstyle='round',
                          linestyle=line_style_r_at, color=color_list[0], linewidth=plot_line_width)
-        rb, = plt.plot(t_simulation, r_phase1[0][0] * np.ones_like(t_simulation), dash_capstyle='round',
+        rb, = plt.plot(l_time_points_phase2, r_phase1[0][0] * np.ones_like(l_time_points_phase2), dash_capstyle='round',
                        linestyle=line_style_rb, color=color_list[0], linewidth=plot_line_width*1.3)
 
         plt.vlines(4,  ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
@@ -623,7 +623,7 @@ def plot_all(t, res_rates, res_weights, p_threshold, stim_times, name, hour_sim,
 
         # betas
         xmin = 0
-        xmax = t_simulation[-1]
+        xmax = l_time_points_phase2[-1]
         plt.figure(figsize=(figure_width, figure_len))
         ax = plt.gca()
         ax.spines['top'].set_visible(False)
@@ -634,11 +634,11 @@ def plot_all(t, res_rates, res_weights, p_threshold, stim_times, name, hour_sim,
             ax.spines[axis].set_linewidth(line_width)
         plt.tick_params(width=line_width, length=tick_len)
 
-        beta1, = ax.plot(t_simulation, r_phase2[8], color=color_list[0], linewidth=plot_line_width)
-        beta2, = ax.plot(t_simulation, r_phase2[9], color=color_list[1], linewidth=plot_line_width)
-        r_at, = plt.plot(t_simulation, p_threshold * np.ones_like(t_simulation), dash_capstyle='round',
+        beta1, = ax.plot(l_time_points_phase2, r_phase2[8], color=color_list[0], linewidth=plot_line_width)
+        beta2, = ax.plot(l_time_points_phase2, r_phase2[9], color=color_list[1], linewidth=plot_line_width)
+        r_at, = plt.plot(l_time_points_phase2, av_threshold * np.ones_like(l_time_points_phase2), dash_capstyle='round',
                          linestyle=line_style_r_at, color=color_list[0], linewidth=plot_line_width)
-        rb, = plt.plot(t_simulation, r_phase1[0][0] * np.ones_like(t_simulation), dash_capstyle='round',
+        rb, = plt.plot(l_time_points_phase2, r_phase1[0][0] * np.ones_like(l_time_points_phase2), dash_capstyle='round',
                        linestyle=line_style_rb, color=color_list[0], linewidth=plot_line_width*1.3)
 
         plt.vlines(4,  ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
@@ -678,12 +678,12 @@ def plot_all(t, res_rates, res_weights, p_threshold, stim_times, name, hour_sim,
         mag_of_y = ax.yaxis.get_offset_text()
         mag_of_y.set_size(font_size_1)
 
-        wEE1, = ax.plot(t_simulation, J_EE11, linewidth=plot_line_width, color=color_list[0])
-        wEE2, = ax.plot(t_simulation, J_EE22, linewidth=plot_line_width, color=color_list[1])
-        wEP1, = ax.plot(t_simulation, J_EP11, linewidth=plot_line_width, color=color_list[2])
-        wEP2, = ax.plot(t_simulation, J_EP22, linewidth=plot_line_width, color=color_list[3])
-        wES1, = ax.plot(t_simulation, J_DS11, linewidth=plot_line_width, color=color_list[4])
-        wES2, = ax.plot(t_simulation, J_DS22, linewidth=plot_line_width, color=color_list[5])
+        wEE1, = ax.plot(l_time_points_phase2, J_EE11, linewidth=plot_line_width, color=color_list[0])
+        wEE2, = ax.plot(l_time_points_phase2, J_EE22, linewidth=plot_line_width, color=color_list[1])
+        wEP1, = ax.plot(l_time_points_phase2, J_EP11, linewidth=plot_line_width, color=color_list[2])
+        wEP2, = ax.plot(l_time_points_phase2, J_EP22, linewidth=plot_line_width, color=color_list[3])
+        wES1, = ax.plot(l_time_points_phase2, J_DS11, linewidth=plot_line_width, color=color_list[4])
+        wES2, = ax.plot(l_time_points_phase2, J_DS22, linewidth=plot_line_width, color=color_list[5])
         ax.legend([(wEE1, wEE2), (wEP1, wEP2), (wES1, wES2)],
                   [r'$w_{E_{1}E_{1}}$, $w_{E_{2}E_{2}}$', r'$w_{E_{1}P_{1}}$, $w_{E_{2}P_{2}}$',
                    r'$w_{E_{1}S_{1}}$, $w_{E_{2}S_{2}}$'],
@@ -706,10 +706,140 @@ def plot_all(t, res_rates, res_weights, p_threshold, stim_times, name, hour_sim,
 
 
 
+def plot_rates_at_regular_intervals(r_phase1, l_time_points_phase2, r_phase2, hour_sims, l_delta_rE2, av_threshold, delta_t, sampling_rate_sim, name, format='.svg'):
 
-def plot_all_VIP(t, res_rates, res_weights, p_threshold, stim_times, name, hour_sim, format='.svg'):
 
-    (t_stimulation, t_simulation) = t
+    # plotting configuration
+    ratio = 1.5
+    figure_len, figure_width = 13 * ratio, 12.75 * ratio
+    figure_len1, figure_width1 = 13 * ratio, 13.7 * ratio
+    figure_len2, figure_width2 = 13 * ratio, 14.35 * ratio
+    font_size_1, font_size_2 = 80 * ratio, 65 * ratio
+    font_size_label = 80 * ratio
+    legend_size = 50 * ratio
+    legend_size2 = 65 * ratio
+    line_width, tick_len = 9 * ratio, 20 * ratio
+    marker_size = 15 * ratio
+    marker_edge_width = 3 * ratio
+    plot_line_width = 9 * ratio
+    hfont = {'fontname': 'Arial'}
+    sns.set(style='ticks')
+
+    x_label_text = 'Time (h)'
+
+    line_style_rb = (0, (0.05, 2.5))
+    line_style_r_at = (0, (5, 5))
+    # defining the colors for
+    color_list = ['#3276b3', '#91bce0', # rE1 and WEE11, rE2 and WEE22
+                  '#C10000', '#EFABAB', # rP1 and WEP11, rP2 and WEP22
+                  '#007100', '#87CB87', # rS1 and WES11, rS2 and WES22
+                  '#6600cc'] # timepoints in long simulation
+
+    rE_y_labels = [0.5, 1, 1.5, 2, 2.5] #, 3.5] #[0,5,10,15]
+    rE_ymax = 2.5
+    rE_ymin = 0.5
+
+    stim_applied = 1
+
+ 
+    # plot the long term behaviour for 48 hours
+    rE1 = r_phase2[0]; rE2 = r_phase2[1]
+    rP1 = r_phase2[2]; rP2 = r_phase2[3]
+    rS1 = r_phase2[4]; rS2 = r_phase2[5]
+
+
+    # both excitatory rates
+    xmin = 0
+    xmax = l_time_points_phase2[-1]
+    ymin = 0.5
+    ymax = 2.5
+    plt.figure(figsize=(figure_width1, figure_len1))
+    ax = plt.gca()
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_visible(True)
+    ax.spines['left'].set_visible(True)
+    for axis in ['top', 'bottom', 'left', 'right']:
+        ax.spines[axis].set_linewidth(line_width)
+    plt.tick_params(width=line_width, length=tick_len)
+    rE2_at_every_hour = rE2[int((60*60-20)* (1 / delta_t) * (1 / sampling_rate_sim))::int(60*60* (1 / delta_t) * (1 / sampling_rate_sim))]
+
+    ax.plot(l_time_points_phase2, rE1, color=color_list[0], linewidth=plot_line_width, label='$r_{E1}$')
+    ax.plot(l_time_points_phase2, rE2, color=color_list[1], linewidth=plot_line_width, label='$r_{E2}$')
+    ax.fill_between(hour_sims, rE2_at_every_hour, np.array(l_delta_rE2), color=color_list[1], alpha=0.2, label='$\Delta r_{E_{2}}$')
+    plt.plot(l_time_points_phase2, av_threshold * np.ones_like(l_time_points_phase2), dash_capstyle='round',
+                     linestyle=line_style_r_at, color='black', linewidth=plot_line_width, label='$r_{at}$')
+    plt.plot(l_time_points_phase2, r_phase1[0][0] * np.ones_like(l_time_points_phase2), dash_capstyle='round',
+                   linestyle=line_style_rb, color='black', linewidth=plot_line_width*1.3, label='$r_{b}$')
+
+    plt.vlines(4,  ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
+    plt.vlines(24, ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
+    plt.vlines(48, ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
+
+    plt.xticks(fontsize=font_size_1, **hfont)
+    plt.yticks(fontsize=font_size_1, **hfont)
+
+    plt.ylim([ymin, ymax])
+    plt.yticks([0.5, 1, 1.5, 2, 2.5], fontsize=font_size_1, **hfont)
+    plt.xlim([xmin, xmax])
+    plt.xticks([4, 24, 48], fontsize=font_size_1, **hfont)
+    plt.xlabel(x_label_text, fontsize=font_size_label, **hfont)
+    plt.ylabel('Firing rate', fontsize=font_size_label, **hfont)
+    ax.legend(handler_map={tuple: HandlerTuple(ndivide=None)}, fontsize=legend_size, loc='upper right', handlelength=3, ncol=2)
+
+    plt.tight_layout()
+    plt.savefig(name + '_long_E_rates' + format)
+    plt.close()
+
+
+
+    # rates E
+    xmin = 0
+    xmax = l_time_points_phase2[-1]
+    ymin = 0.5
+    ymax = 2.5
+    plt.figure(figsize=(figure_width1, figure_len1))
+    ax = plt.gca()
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_visible(True)
+    ax.spines['left'].set_visible(True)
+    for axis in ['top', 'bottom', 'left', 'right']:
+        ax.spines[axis].set_linewidth(line_width)
+    plt.tick_params(width=line_width, length=tick_len)
+    rE2_at_every_hour = rE2[int((60*60-20)* (1 / delta_t) * (1 / sampling_rate_sim))::int(60*60* (1 / delta_t) * (1 / sampling_rate_sim))]
+
+    ax.plot(l_time_points_phase2, rE2, color=color_list[1], linewidth=plot_line_width, label='$r_{E2}$')
+    ax.fill_between(hour_sims, rE2_at_every_hour, np.array(l_delta_rE2), color=color_list[1], alpha=0.2, label='$\Delta r_{E_{2}}$')
+    plt.plot(l_time_points_phase2, av_threshold * np.ones_like(l_time_points_phase2), dash_capstyle='round',
+                     linestyle=line_style_r_at, color='black', linewidth=plot_line_width, label='$r_{at}$')
+    plt.plot(l_time_points_phase2, r_phase1[0][0] * np.ones_like(l_time_points_phase2), dash_capstyle='round',
+                   linestyle=line_style_rb, color='black', linewidth=plot_line_width*1.3, label='$r_{b}$')
+
+    plt.vlines(4,  ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
+    plt.vlines(24, ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
+    plt.vlines(48, ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
+
+    plt.xticks(fontsize=font_size_1, **hfont)
+    plt.yticks(fontsize=font_size_1, **hfont)
+
+    plt.ylim([ymin, ymax])
+    plt.yticks([0.5, 1, 1.5, 2, 2.5], fontsize=font_size_1, **hfont)
+    plt.xlim([xmin, xmax])
+    plt.xticks([4, 24, 48], fontsize=font_size_1, **hfont)
+    plt.xlabel(x_label_text, fontsize=font_size_label, **hfont)
+    plt.ylabel('Firing rate', fontsize=font_size_label, **hfont)
+    ax.legend(handler_map={tuple: HandlerTuple(ndivide=None)}, fontsize=legend_size, loc='upper right', handlelength=3, ncol=2)
+
+    plt.tight_layout()
+    plt.savefig(name + '_long_E2_rate' + format)
+    plt.close()
+
+
+
+def plot_all_VIP(t, res_rates, res_weights, av_threshold, stim_times, name, hour_sim, format='.svg'):
+
+    (l_time_points_stim, l_time_points_phase2) = t
     (r_phase1, r_phase2, r_phase3, max_E) = res_rates
     (J_phase1, J_phase2) = res_weights
 
@@ -787,26 +917,26 @@ def plot_all_VIP(t, res_rates, res_weights, p_threshold, stim_times, name, hour_
             transparency = 1
 
 
-        p1, = ax.plot(t_stimulation, rP1,
+        p1, = ax.plot(l_time_points_stim, rP1,
                       color=color_list[2], linewidth=plot_line_width, label=r'$r_{P1}$', alpha=transparency)
-        p2, = ax.plot(t_stimulation, rP2, '-o', markersize=30, markevery=0.1,
+        p2, = ax.plot(l_time_points_stim, rP2, '-o', markersize=30, markevery=0.1,
                       color=color_list[3], linewidth=plot_line_width, label=r'$r_{P2}$', alpha=transparency)
-        s1, = ax.plot(t_stimulation, rS1,
+        s1, = ax.plot(l_time_points_stim, rS1,
                       color=color_list[4], linewidth=plot_line_width, label=r'$r_{S1}$', alpha=transparency)
-        s2, = ax.plot(t_simulation, rS2, '-o', markersize=30, markevery=0.1,
+        s2, = ax.plot(l_time_points_phase2, rS2, '-o', markersize=30, markevery=0.1,
                       color=color_list[5], linewidth=plot_line_width, label=r'$r_{S2}$', alpha=transparency)
 
-        v1, = ax.plot(t_stimulation, rV1, color=color_list[6], linewidth=plot_line_width)
-        v2, = ax.plot(t_stimulation, rV2, color=color_list[7], linewidth=plot_line_width)
-        e1, = ax.plot(t_stimulation, rE1, color=color_list[0],
+        v1, = ax.plot(l_time_points_stim, rV1, color=color_list[6], linewidth=plot_line_width)
+        v2, = ax.plot(l_time_points_stim, rV2, color=color_list[7], linewidth=plot_line_width)
+        e1, = ax.plot(l_time_points_stim, rE1, color=color_list[0],
                       linewidth=plot_line_width, label=r'$r_{E1}$', alpha=transparency)
-        e2, = ax.plot(t_stimulation, rE2, color=color_list[1],
+        e2, = ax.plot(l_time_points_stim, rE2, color=color_list[1],
                       linewidth=plot_line_width, label=r'$r_{E2}$')
 
         # add here the first and the last 5 seconds of the stimulations
-        r_th, = plt.plot(t_stimulation, p_threshold * np.ones_like(t_stimulation), dash_capstyle='round',
+        r_th, = plt.plot(l_time_points_stim, av_threshold * np.ones_like(l_time_points_stim), dash_capstyle='round',
                          linestyle=(0, (5, 5)), color=color_list[0], linewidth=plot_line_width)
-        rb, = plt.plot(t_stimulation, r_phase1[0][0] * np.ones_like(t_stimulation), dash_capstyle='round',
+        rb, = plt.plot(l_time_points_stim, r_phase1[0][0] * np.ones_like(l_time_points_stim), dash_capstyle='round',
                        linestyle=(0, (1, 3)), color=color_list[0], linewidth=plot_line_width)
 
         plt.xticks(fontsize=font_size_1, **hfont)
@@ -901,7 +1031,7 @@ def plot_all_VIP(t, res_rates, res_weights, p_threshold, stim_times, name, hour_
 
         # rates
         xmin = 0
-        xmax = t_simulation[-1]
+        xmax = l_time_points_phase2[-1]
         ymin = 0
         ymax = 3
         plt.figure(figsize=(figure_width*1.5, figure_len))
@@ -922,9 +1052,9 @@ def plot_all_VIP(t, res_rates, res_weights, p_threshold, stim_times, name, hour_
         v2, = ax.plot(rV2, color=color_list[7], linewidth=plot_line_width)
         e1, = ax.plot(rE1, color=color_list[0], linewidth=plot_line_width)
         e2, = ax.plot(rE2, color=color_list[1], linewidth=plot_line_width)
-        r_th, = plt.plot(t_stimulation, p_threshold * np.ones_like(t_stimulation), dash_capstyle='round',
+        r_th, = plt.plot(l_time_points_stim, av_threshold * np.ones_like(l_time_points_stim), dash_capstyle='round',
                          linestyle=(0, (5, 5)), color=color_list[0], linewidth=plot_line_width)
-        rb, = plt.plot(t_stimulation, r_phase1[0][0] * np.ones_like(t_stimulation), dash_capstyle='round',
+        rb, = plt.plot(l_time_points_stim, r_phase1[0][0] * np.ones_like(l_time_points_stim), dash_capstyle='round',
                        linestyle=(0, (1, 3)), color=color_list[0], linewidth=plot_line_width)
 
         """plt.vlines(4,  ymin, ymax, 'black', linestyles=(0, (5, 8)), linewidth=plot_line_width, )
