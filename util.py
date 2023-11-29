@@ -41,6 +41,47 @@ def determine_name(flags):
         return "8", "8no_scaling", "No scaling"
 
 
+def determine_name_old(flags):
+    (hebbian_plasticity_flag, exc_scaling_flag,
+     inh_scaling_flag_p, inh_scaling_flag_s,
+     adaptive_threshold_flag, adaptive_LR_flag) = flags
+
+    if flags == (0,0,0,0,0,0):
+        return "0", "0", "No plasticity"
+    elif flags == (1,0,0,0,0,0):
+        return "1", "1heb", "Only Hebbian learning"
+    elif flags == (1,0,0,0,0,1):
+        return "2", "2heb_adapLR", "Hebbian and 3-factor learning rate"
+    elif flags == (1,0,0,0,1,0):
+        return "3", "3heb_adapThr", "Hebbian and adaptive threshold"
+    elif flags == (1,0,0,0,1,1):
+        return "4", "4heb_adapLR_adapThr", "Hebbian, 3-factor learning rate, and adaptive threshold"
+    elif flags == (1,1,1,1,0,1):
+        return "5", "5heb_adapLR_excSS_inhSS", "Hebbian, 3-factor learning rate, and all SS"
+    elif flags == (1,1,1,1,1,1):
+        return "6", "6heb_adapLR_excSS_inhSS_adapThr",  "Full model"
+    elif flags == (1,1,1,1,0,0):
+        return "7", "7heb_adapThr_excSS_inhSS", "Hebbian and both SS"
+    elif flags == (1,1,1,1,1,0):
+        return "8", "8heb_adapThr_excSS_inhSS_adapLR", "Hebbian, adaptive threshold, and both SS"
+    elif flags == (0,1,1,1,1,0):
+        return "9", "9heb_adapThr_excSS_inhSS_adapLR", "Adaptive threshold, and both SS"
+    elif flags == (1,0,1,1,1,1):
+        return "10", "10without_excitatory_scaling", "E off"
+    elif flags == (1,1,0,0,1,1):
+        return "11", "11without_inhibitory_scaling", "P and S off"
+    elif flags == (1,1,0,1,1,1):
+        return "12", "12without_P_scaling", "P off (E+S)"
+    elif flags == (1,1,1,0,1,1):
+        return "13", "13without_S_scaling", "S off (E+P)"
+    elif flags == (1,0,0,1,1,1):
+        return "14", "14without_P_and_E_scaling", "only S on"
+    elif flags == (1,0,1,0,1,1):
+        return "15", "15without_S_and_E_scaling", "only P on"
+    else:
+        print("Please enter a valid flag configuration. Check the determine_name function.")
+        quit()
+
 
 def plot_all(t, res_rates, res_weights, av_threshold, stim_times, name, hour_sim, format='.svg'):
 
@@ -1104,10 +1145,10 @@ def plot_all_2_compartmental_local_activity_scaling(t, res_rates, res_weights, a
 
 
 
-def plot_all_3_compartmental(t, res_rates, res_weights, av_threshold, stim_times, name, hour_sim, format='.svg'):
+def plot_all_2_compartmental_loc_all_to_all(t, res_rates, res_weights, av_threshold, stim_times, name, hour_sim, format='.svg'):
 
     (l_time_points_stim, l_time_points_phase2) = t
-    (r_phase1, I_phase1, r_phase2, I_phase2, set_phase2, r_phase3, max_E) = res_rates
+    (r_phase1, r_phase2, r_phase3, max_E) = res_rates
     (J_EE_phase1, J_phase2) = res_weights
 
     # plotting configuration
@@ -1185,7 +1226,7 @@ def plot_all_3_compartmental(t, res_rates, res_weights, av_threshold, stim_times
         plt.xticks(fontsize=font_size_1, **hfont)
         plt.yticks(fontsize=font_size_1, **hfont)
 
-        #plt.ylim([0, 35])
+        plt.ylim([0, 5])
         #plt.yticks(rE_y_labels, fontsize=font_size_1, **hfont)
         plt.xlim([xmin, xmax])
         plt.xticks([5, 10, 15, 20, 25], fontsize=font_size_1, **hfont)
@@ -1202,7 +1243,7 @@ def plot_all_3_compartmental(t, res_rates, res_weights, av_threshold, stim_times
 
         stim_applied = stim_applied + 1
 
-        ######### wDE during conditioning ###########
+        ######### excitatory weights ###########
         xmin = 0
         xmax = stim_times[0][1] + 5
         ymin = 0
@@ -1218,56 +1259,16 @@ def plot_all_3_compartmental(t, res_rates, res_weights, av_threshold, stim_times
         plt.tick_params(width=line_width, length=tick_len)
         plt.axvspan(stim_times[0][0], stim_times[0][1], color='gray', alpha=0.15)
 
-        wde11, = ax.plot(l_time_points_stim, J_EE_phase1[0], color=color_list[0], linewidth=plot_line_width)
-        wde12, = ax.plot(l_time_points_stim, J_EE_phase1[1], '--', color=color_list[0], linewidth=plot_line_width)
-        wde21, = ax.plot(l_time_points_stim, J_EE_phase1[2], color=color_list[1], linewidth=plot_line_width)
-        wde22, = ax.plot(l_time_points_stim, J_EE_phase1[3], '--', color=color_list[1], linewidth=plot_line_width)
+        wee11, = ax.plot(l_time_points_stim, J_EE_phase1[0], color=color_list[0], linewidth=plot_line_width)
+        wee12, = ax.plot(l_time_points_stim, J_EE_phase1[1], '--', color=color_list[0], linewidth=plot_line_width)
+        wee21, = ax.plot(l_time_points_stim, J_EE_phase1[2], color=color_list[1], linewidth=plot_line_width)
+        wee22, = ax.plot(l_time_points_stim, J_EE_phase1[3], '--', color=color_list[1], linewidth=plot_line_width)
 
         plt.xticks(fontsize=font_size_1, **hfont)
         plt.yticks(fontsize=font_size_1, **hfont)
 
-        #plt.ylim([ymin, ymax])
-        #plt.yticks([0, 0.5, 1], fontsize=font_size_1, **hfont)
-        plt.xlim([xmin, xmax])
-        plt.xticks([5, 10, 15, 20, 25], fontsize=font_size_1, **hfont)
-        plt.xlabel('Time (s)', fontsize=font_size_label, **hfont)
-        plt.ylabel('Weights', fontsize=font_size_label, **hfont)
-
-        ax.legend([(wde11, wde12), (wde21, wde22)],
-                  [r'$w_{D_{1}E_{1}}$, $w_{D_{1}E_{2}}$', '$w_{D_{2}E_{1}}$', r'$w_{D_{2}E_{2}}$'],
-                  handler_map={tuple: HandlerTuple(ndivide=None)},
-                  fontsize=legend_size, loc='upper left', handlelength=5)
-        plt.tight_layout()
-
-        plt.savefig(name + 'conditioning_wDE' + format)
-        plt.close()
-
-        #########  wEE during conditioning  ###########
-        xmin = 0
-        xmax = stim_times[0][1] + 5
-        ymin = 0
-        ymax = 1
-        plt.figure(figsize=(figure_width1, figure_len1))
-        ax = plt.gca()
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['bottom'].set_visible(True)
-        ax.spines['left'].set_visible(True)
-        for axis in ['top', 'bottom', 'left', 'right']:
-            ax.spines[axis].set_linewidth(line_width)
-        plt.tick_params(width=line_width, length=tick_len)
-        plt.axvspan(stim_times[0][0], stim_times[0][1], color='gray', alpha=0.15)
-
-        wee11, = ax.plot(l_time_points_stim, J_EE_phase1[4], color=color_list[0], linewidth=plot_line_width)
-        wee12, = ax.plot(l_time_points_stim, J_EE_phase1[5], '--', color=color_list[0], linewidth=plot_line_width)
-        wee21, = ax.plot(l_time_points_stim, J_EE_phase1[6], color=color_list[1], linewidth=plot_line_width)
-        wee22, = ax.plot(l_time_points_stim, J_EE_phase1[7], '--', color=color_list[1], linewidth=plot_line_width)
-
-        plt.xticks(fontsize=font_size_1, **hfont)
-        plt.yticks(fontsize=font_size_1, **hfont)
-
-        #plt.ylim([ymin, ymax])
-        #plt.yticks([0, 0.5, 1], fontsize=font_size_1, **hfont)
+        plt.ylim([ymin, ymax])
+        plt.yticks([0, 0.5, 1], fontsize=font_size_1, **hfont)
         plt.xlim([xmin, xmax])
         plt.xticks([5, 10, 15, 20, 25], fontsize=font_size_1, **hfont)
         plt.xlabel('Time (s)', fontsize=font_size_label, **hfont)
@@ -1298,24 +1299,21 @@ def plot_all_3_compartmental(t, res_rates, res_weights, av_threshold, stim_times
         plt.tick_params(width=line_width, length=tick_len)
         plt.axvspan(stim_times[0][0], stim_times[0][1], color='gray', alpha=0.15)
 
-        I_AD1, = ax.plot(l_time_points_stim, I_phase1[0], color='indigo', linewidth=plot_line_width)
-        I_AD2, = ax.plot(l_time_points_stim, I_phase1[1], color='mediumpurple', linewidth=plot_line_width)
-        I_BD1, = ax.plot(l_time_points_stim, I_phase1[2], color='indigo', linewidth=plot_line_width)
-        I_BD2, = ax.plot(l_time_points_stim, I_phase1[3], color='mediumpurple', linewidth=plot_line_width)
-        I_E1,  = ax.plot(l_time_points_stim, I_phase1[4], color=color_list[0], linewidth=plot_line_width)
-        I_E2,  = ax.plot(l_time_points_stim, I_phase1[5], color=color_list[1], linewidth=plot_line_width)
+        I_D1, = ax.plot(l_time_points_stim, r_phase1[6], color='indigo', linewidth=plot_line_width)
+        I_D2, = ax.plot(l_time_points_stim, r_phase1[7], color='mediumpurple', linewidth=plot_line_width)
+        I_E1, = ax.plot(l_time_points_stim, r_phase1[8], color=color_list[0], linewidth=plot_line_width)
+        I_E2, = ax.plot(l_time_points_stim, r_phase1[9], color=color_list[1], linewidth=plot_line_width)
 
         plt.xticks(fontsize=font_size_1, **hfont)
         plt.yticks(fontsize=font_size_1, **hfont)
 
-        #plt.ylim([ymin, ymax])
-        #plt.yticks([0, 0.5, 1,  1.5, 2, 2.5], fontsize=font_size_1, **hfont)
+        plt.ylim([ymin, ymax])
+        plt.yticks([0, 0.5, 1,  1.5, 2, 2.5], fontsize=font_size_1, **hfont)
         plt.xlim([xmin, xmax])
         plt.xticks([5, 10, 15, 20, 25], fontsize=font_size_1, **hfont)
         plt.xlabel('Time (s)', fontsize=font_size_label, **hfont)
         plt.ylabel('Currents', fontsize=font_size_label, **hfont)
-        ax.legend([(I_AD1, I_AD2), (I_BD1, I_BD2), (I_E1, I_E2), rb, r_at],
-                  [r'$I_{AD1}$, $I_{AD2}$', r'$I_{BD1}$, $I_{BD2}$', r'$I_{E1}$, $I_{E2}$'],
+        ax.legend([(I_D1, I_D2), (I_E1, I_E2), rb, r_at], [r'$I_{D1}$, $I_{D2}$', r'$I_{E1}$, $I_{E2}$'],
                   handler_map={tuple: HandlerTuple(ndivide=None)},
                   fontsize=legend_size, loc='upper left', handlelength=5)
         plt.tight_layout()
@@ -1328,9 +1326,9 @@ def plot_all_3_compartmental(t, res_rates, res_weights, av_threshold, stim_times
         l_rP1 = r_phase2[2]; l_rP2 = r_phase2[3]
         l_rS1 = r_phase2[4]; l_rS2 = r_phase2[5]
 
-        l_thetaAD1, l_thetaAD2, l_thetaBD1, l_thetaBD2, l_thetaE1, l_thetaE2 = set_phase2[0], set_phase2[1], set_phase2[2], set_phase2[3], set_phase2[2], set_phase2[3]
-        l_betaAD1, l_betaAD2, l_betaBD1, l_betaBD2, l_betaE1, l_betaE2 = set_phase2[0], set_phase2[1], set_phase2[2], set_phase2[3], set_phase2[2], set_phase2[3]
-        l_IAD1, l_IAD2, l_IBD1, l_IBD2, l_IE1, l_IE2 = I_phase2[0], I_phase2[1], I_phase2[2], I_phase2[3], I_phase2[4], I_phase2[5]
+        l_thetaD1, l_thetaD2, l_thetaE1, l_thetaE2 = r_phase2[6], r_phase2[7], r_phase2[8], r_phase2[9]
+        l_betaD1, l_betaD2, l_betaE1, l_betaE2 = r_phase2[10], r_phase2[11], r_phase2[12], r_phase2[13]
+        l_ID1, l_ID2, l_IE1, l_IE2 = r_phase2[14], r_phase2[15], r_phase2[16], r_phase2[17]
 
 
         l_J_DE11, l_J_DE12, l_J_DE21, l_J_DE22 = J_phase2[0], J_phase2[1], J_phase2[2], J_phase2[3]
@@ -1403,12 +1401,10 @@ def plot_all_3_compartmental(t, res_rates, res_weights, av_threshold, stim_times
             ax.spines[axis].set_linewidth(line_width)
         plt.tick_params(width=line_width, length=tick_len)
 
-        I_AD1, = ax.plot(l_time_points_phase2, l_IAD1, color='indigo', linewidth=plot_line_width)
-        I_AD2, = ax.plot(l_time_points_phase2, l_IAD2, color='mediumpurple', linewidth=plot_line_width)
-        I_BD1, = ax.plot(l_time_points_phase2, l_IBD1, color='olive', linewidth=plot_line_width)
-        I_BD2, = ax.plot(l_time_points_phase2, l_IBD2, color='darkkhaki', linewidth=plot_line_width)
-        I_E1,  = ax.plot(l_time_points_phase2, l_IE1,  color=color_list[0], linewidth=plot_line_width)
-        I_E2,  = ax.plot(l_time_points_phase2, l_IE2,  color=color_list[1], linewidth=plot_line_width)
+        I_D1, = ax.plot(l_time_points_phase2, l_ID1, color='indigo', linewidth=plot_line_width)
+        I_D2, = ax.plot(l_time_points_phase2, l_ID2, color='mediumpurple', linewidth=plot_line_width)
+        I_E1, = ax.plot(l_time_points_phase2, l_IE1, color=color_list[0], linewidth=plot_line_width)
+        I_E2, = ax.plot(l_time_points_phase2, l_IE2, color=color_list[1], linewidth=plot_line_width)
 
         plt.vlines(4,  ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
         plt.vlines(24, ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
@@ -1417,14 +1413,13 @@ def plot_all_3_compartmental(t, res_rates, res_weights, av_threshold, stim_times
         plt.xticks(fontsize=font_size_1, **hfont)
         plt.yticks(fontsize=font_size_1, **hfont)
 
-        #plt.ylim([ymin, ymax])
-        #plt.yticks([0, 0.5, 1,  1.5, 2, 2.5], fontsize=font_size_1, **hfont)
+        plt.ylim([ymin, ymax])
+        plt.yticks([0, 0.5, 1,  1.5, 2, 2.5], fontsize=font_size_1, **hfont)
         plt.xlim([xmin, xmax])
         plt.xticks([4, 24, 48], fontsize=font_size_1, **hfont)
         plt.xlabel(x_label_text, fontsize=font_size_label, **hfont)
         plt.ylabel('Currents', fontsize=font_size_label, **hfont)
-        ax.legend([(I_AD1, I_AD2), (I_BD1, I_BD2), (I_E1, I_E2), rb, r_at],
-                  [r'$I_{AD1}$, $I_{AD2}$', r'$I_{BD1}$, $I_{BD2}$', r'$I_{E1}$, $I_{E2}$'],
+        ax.legend([(I_D1, I_D2), (I_E1, I_E2), rb, r_at], [r'$I_{D1}$, $I_{D2}$', r'$I_{E1}$, $I_{E2}$'],
                   handler_map={tuple: HandlerTuple(ndivide=None)},
                   fontsize=legend_size, loc='upper left', handlelength=5)
         plt.tight_layout()
@@ -1446,10 +1441,8 @@ def plot_all_3_compartmental(t, res_rates, res_weights, av_threshold, stim_times
             ax.spines[axis].set_linewidth(line_width)
         plt.tick_params(width=line_width, length=tick_len)
 
-        thetaAD1, = ax.plot(l_time_points_phase2, l_thetaAD1, color='indigo', linewidth=plot_line_width*.5)
-        thetaAD2, = ax.plot(l_time_points_phase2, l_thetaAD2, color='mediumpurple', linewidth=plot_line_width*.5)
-        thetaBD1, = ax.plot(l_time_points_phase2, l_thetaBD1, color='olive', linewidth=plot_line_width*.5)
-        thetaBD2, = ax.plot(l_time_points_phase2, l_thetaBD2, color='darkkhaki', linewidth=plot_line_width*.5)
+        thetaD1, = ax.plot(l_time_points_phase2, l_thetaD1, color=color_list[0], linewidth=plot_line_width*.5)
+        thetaD2, = ax.plot(l_time_points_phase2, l_thetaD2, color=color_list[1], linewidth=plot_line_width*.5)
         thetaE1, = ax.plot(l_time_points_phase2, l_thetaE1, color=color_list[0], linewidth=plot_line_width*1.5)
         thetaE2, = ax.plot(l_time_points_phase2, l_thetaE2, color=color_list[1], linewidth=plot_line_width*1.5)
         r_at, = plt.plot(l_time_points_phase2, av_threshold * np.ones_like(l_time_points_phase2), dash_capstyle='round',
@@ -1470,8 +1463,7 @@ def plot_all_3_compartmental(t, res_rates, res_weights, av_threshold, stim_times
         plt.xticks([4, 24, 48], fontsize=font_size_1, **hfont)
         plt.xlabel(x_label_text, fontsize=font_size_label, **hfont)
         plt.ylabel(r'Set-point $\theta$', fontsize=font_size_label, **hfont)
-        ax.legend([(thetaAD1, thetaAD2), (thetaBD1, thetaBD2), (thetaE1, thetaE2), rb, r_at],
-                  [r'$\theta_{AD1}$, $\theta_{AD2}$', r'$\theta_{BD1}$, $\theta_{BD2}$', r'$\theta_{E1}$, $\theta_{E2}$', '$r_b$', '$r_{at}$'],
+        ax.legend([(thetaD1, thetaD2), (thetaE1, thetaE2), rb, r_at], [r'$\theta_{D1}$, $\theta_{D2}$', r'$\theta_{E1}$, $\theta_{E2}$', '$r_b$', '$r_{at}$'],
                   handler_map={tuple: HandlerTuple(ndivide=None)},
                   fontsize=legend_size, loc='upper left', handlelength=5)
 
@@ -1495,10 +1487,8 @@ def plot_all_3_compartmental(t, res_rates, res_weights, av_threshold, stim_times
             ax.spines[axis].set_linewidth(line_width)
         plt.tick_params(width=line_width, length=tick_len)
 
-        betaAD1, = ax.plot(l_time_points_phase2, l_betaAD1, color='indigo', linewidth=plot_line_width*.5)
-        betaAD2, = ax.plot(l_time_points_phase2, l_betaAD2, color='mediumpurple', linewidth=plot_line_width*.5)
-        betaBD1, = ax.plot(l_time_points_phase2, l_betaBD1, color='olive', linewidth=plot_line_width*.5)
-        betaBD2, = ax.plot(l_time_points_phase2, l_betaBD2, color='darkkhaki', linewidth=plot_line_width*.5)
+        betaD1, = ax.plot(l_time_points_phase2, l_betaD1, color=color_list[0], linewidth=plot_line_width*.5)
+        betaD2, = ax.plot(l_time_points_phase2, l_betaD2, color=color_list[1], linewidth=plot_line_width*.5)
         betaE1, = ax.plot(l_time_points_phase2, l_betaE1, color=color_list[0], linewidth=plot_line_width*1.5)
         betaE2, = ax.plot(l_time_points_phase2, l_betaE2, color=color_list[1], linewidth=plot_line_width*1.5)
         r_at, = plt.plot(l_time_points_phase2, av_threshold * np.ones_like(l_time_points_phase2), dash_capstyle='round',
@@ -1519,8 +1509,7 @@ def plot_all_3_compartmental(t, res_rates, res_weights, av_threshold, stim_times
         plt.xticks([4, 24, 48], fontsize=font_size_1, **hfont)
         plt.xlabel(x_label_text, fontsize=font_size_label, **hfont)
         plt.ylabel(r'Set-point regulator $\beta$', fontsize=font_size_label, **hfont)
-        ax.legend([(betaAD1, betaAD2), (betaBD1, betaBD2), (betaE1, betaE2), rb, r_at],
-                  [r'$\beta_{AD1}$, $\beta_{AD2}$', r'$\beta_{BD1}$, $\beta_{BD2}$', r'$\beta_{E1}$, $\beta_{E2}$', '$r_b$', '$r_{at}$'],
+        ax.legend([(betaD1, betaD2), (betaE1, betaE2), rb, r_at], [r'$\beta_{D1}$, $\beta_{D2}$', r'$\beta_{E1}$, $\beta_{E2}$', '$r_b$', '$r_{at}$'],
                   handler_map={tuple:HandlerTuple(ndivide=None)}, fontsize=legend_size, loc='upper left',handlelength=5)
         plt.tight_layout()
 
@@ -1558,8 +1547,8 @@ def plot_all_3_compartmental(t, res_rates, res_weights, av_threshold, stim_times
         plt.xticks(fontsize=font_size_1, **hfont)
         plt.yticks(fontsize=font_size_1, **hfont)
 
-        #plt.ylim([ymin, ymax])
-        #plt.yticks([0, 0.5, 1, 1.5], fontsize=font_size_1, **hfont)
+        plt.ylim([ymin, ymax])
+        plt.yticks([0, 0.5, 1, 1.5], fontsize=font_size_1, **hfont)
         plt.xlim([xmin, xmax])
         plt.xticks([4, 24, 48], fontsize=font_size_1, **hfont)
         plt.xlabel(x_label_text, fontsize=font_size_label, **hfont)
@@ -1596,8 +1585,8 @@ def plot_all_3_compartmental(t, res_rates, res_weights, av_threshold, stim_times
         plt.xticks(fontsize=font_size_1, **hfont)
         plt.yticks(fontsize=font_size_1, **hfont)
 
-        #plt.ylim([ymin, ymax])
-        #plt.yticks([0, 0.5, 1, 1.5], fontsize=font_size_1, **hfont)
+        plt.ylim([ymin, ymax])
+        plt.yticks([0, 0.5, 1, 1.5], fontsize=font_size_1, **hfont)
         plt.xlim([xmin, xmax])
         plt.xticks([4, 24, 48], fontsize=font_size_1, **hfont)
         plt.xlabel(x_label_text, fontsize=font_size_label, **hfont)
@@ -1634,8 +1623,8 @@ def plot_all_3_compartmental(t, res_rates, res_weights, av_threshold, stim_times
         plt.xticks(fontsize=font_size_1, **hfont)
         plt.yticks(fontsize=font_size_1, **hfont)
 
-        #plt.ylim([ymin, ymax])
-        #plt.yticks([0, 0.5, 1, 1.5], fontsize=font_size_1, **hfont)
+        plt.ylim([ymin, ymax])
+        plt.yticks([0, 0.5, 1, 1.5], fontsize=font_size_1, **hfont)
         plt.xlim([xmin, xmax])
         plt.xticks([4, 24, 48], fontsize=font_size_1, **hfont)
         plt.xlabel(x_label_text, fontsize=font_size_label, **hfont)
@@ -1672,8 +1661,8 @@ def plot_all_3_compartmental(t, res_rates, res_weights, av_threshold, stim_times
         plt.xticks(fontsize=font_size_1, **hfont)
         plt.yticks(fontsize=font_size_1, **hfont)
 
-        #plt.ylim([ymin, ymax])
-        #plt.yticks([0, 0.5, 1, 1.5], fontsize=font_size_1, **hfont)
+        plt.ylim([ymin, ymax])
+        plt.yticks([0, 0.5, 1, 1.5], fontsize=font_size_1, **hfont)
         plt.xlim([xmin, xmax])
         plt.xticks([4, 24, 48], fontsize=font_size_1, **hfont)
         plt.xlabel(x_label_text, fontsize=font_size_label, **hfont)
@@ -1681,6 +1670,589 @@ def plot_all_3_compartmental(t, res_rates, res_weights, av_threshold, stim_times
         plt.tight_layout()
 
         plt.savefig(name + '_long_W_DS' + format)
+        plt.close()
+
+
+
+def plot_all_3_compartmental(t, res_rates, res_weights, av_threshold, stim_times, name, hour_sim, format='.svg'):
+
+    (l_time_points_stim, l_time_points_phase2) = t
+    (r_phase1, I_phase1, r_phase2, I_phase2, set_phase2, r_phase3, max_E) = res_rates
+    (J_EE_phase1, J_phase2) = res_weights
+
+    # plotting configuration
+    ratio = 1.5
+    figure_len, figure_width = 13 * ratio, 12.75 * ratio
+    figure_len1, figure_width1 = 13 * ratio, 13.7 * ratio
+    figure_len2, figure_width2 = 13 * ratio, 14.35 * ratio
+    font_size_1, font_size_2 = 80 * ratio, 65 * ratio
+    font_size_label = 80 * ratio
+    legend_size = 50 * ratio
+    legend_size2 = 65 * ratio
+    line_width, tick_len = 9 * ratio, 20 * ratio
+    marker_size = 15 * ratio
+    marker_edge_width = 3 * ratio
+    plot_line_width = 9 * ratio
+    hfont = {'fontname': 'Arial'}
+    sns.set(style='ticks')
+
+    x_label_text = 'Time (h)'
+
+    line_style_rb = (0, (0.05, 2.5))
+    line_style_r_at = (0, (5, 5))
+    # defining the colors for
+    color_list = ['#3276b3', '#91bce0', # rE1 and WEE11, rE2 and WEE22
+                  '#C10000', '#EFABAB', # rP1 and WEP11, rP2 and WEP22
+                  '#007100', '#87CB87', # rS1 and WES11, rS2 and WES22
+                  '#6600cc', # timepoints in long simulation
+                  'indigo', 'mediumpurple', # I_AD1 and WDE11, I_AD2 and WDE22
+                  'olive', 'darkkhaki']     # I_BD1, I_BD2
+
+    rE_y_labels = [0.5, 1, 1.5, 2, 2.5] #, 3.5] #[0,5,10,15]
+    rE_ymax = 2.5
+    rE_ymin = 0.5
+
+    stim_applied = 1
+
+    for i in stim_times:
+        (stim_start, stim_stop) = i
+
+        if stim_applied == 1:
+            rE1 = r_phase1[0]; rE2 = r_phase1[1]
+            rP1 = r_phase1[2]; rP2 = r_phase1[3]
+            rS1 = r_phase1[4]; rS2 = r_phase1[5]
+        elif stim_applied == 2:
+            rE1 = r_phase3[0]; rE2 = r_phase3[1]
+            rP1 = r_phase3[2]; rP2 = r_phase3[3]
+            rS1 = r_phase3[4]; rS2 = r_phase3[5]
+
+        ######### rates ###########
+        xmin = 0
+        xmax = stim_times[0][1] + 5
+
+        plt.figure(figsize=(figure_width1, figure_len1))
+        ax = plt.gca()
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['bottom'].set_visible(True)
+        ax.spines['left'].set_visible(True)
+        for axis in ['top', 'bottom', 'left', 'right']:
+            ax.spines[axis].set_linewidth(line_width)
+        plt.tick_params(width=line_width, length=tick_len)
+        plt.axvspan(stim_times[0][0], stim_times[0][1], color='gray', alpha=0.15)
+
+        #p1, = ax.plot(l_time_points_stim, rP1, color=color_list[2], linewidth=plot_line_width)
+        #p2, = ax.plot(l_time_points_stim, rP2, color=color_list[3], linewidth=plot_line_width)
+        #s1, = ax.plot(l_time_points_stim, rS1, color=color_list[4], linewidth=plot_line_width)
+        #s2, = ax.plot(l_time_points_stim, rS2, color=color_list[5], linewidth=plot_line_width)
+        e1, = ax.plot(l_time_points_stim, rE1, color=color_list[0], linewidth=plot_line_width, label=r'$r_{E1}$')
+        e2, = ax.plot(l_time_points_stim, rE2, color=color_list[1], linewidth=plot_line_width, label=r'$r_{E2}$')
+        r_at, = plt.plot(l_time_points_stim, av_threshold * np.ones_like(l_time_points_stim), dash_capstyle='round',
+                         linestyle=line_style_r_at, color=color_list[0], linewidth=plot_line_width)
+        rb, = plt.plot(l_time_points_stim, r_phase1[0][0] * np.ones_like(l_time_points_stim), dash_capstyle='round',
+                       linestyle=line_style_rb, color=color_list[0], linewidth=plot_line_width*1.3)
+
+        plt.xticks(fontsize=font_size_1, **hfont)
+        plt.yticks(fontsize=font_size_1, **hfont)
+
+        plt.ylim([rE_ymin, rE_ymax])
+        plt.yticks(rE_y_labels, fontsize=font_size_1, **hfont)
+        plt.xlim([xmin, xmax])
+        plt.xticks([5, 10, 15, 20, 25], fontsize=font_size_1, **hfont)
+        plt.xlabel('Time (s)', fontsize=font_size_label, **hfont)
+        plt.ylabel('Firing rate', fontsize=font_size_label, **hfont)
+
+        ax.legend([(e1, e2), rb, r_at], [r'$r_{E1}$, $r_{E2}$', '$r_b$', r'$r_{at}$'],
+                  handler_map={tuple: HandlerTuple(ndivide=None)},
+                  fontsize=legend_size, loc='upper left', handlelength=5)
+        plt.tight_layout()
+
+        plt.savefig(name + "_stim" + str(stim_applied) + '_activity' + format)
+        plt.close()
+
+        stim_applied = stim_applied + 1
+
+    ######### wAB during conditioning ###########
+    xmin = 0
+    xmax = stim_times[0][1] + 5
+    ymin = 0.3
+    ymax = 0.8
+    plt.figure(figsize=(figure_width1, figure_len1))
+    ax = plt.gca()
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_visible(True)
+    ax.spines['left'].set_visible(True)
+    for axis in ['top', 'bottom', 'left', 'right']:
+        ax.spines[axis].set_linewidth(line_width)
+    plt.tick_params(width=line_width, length=tick_len)
+    plt.axvspan(stim_times[0][0], stim_times[0][1], color='gray', alpha=0.15)
+
+    wde11, = ax.plot(l_time_points_stim, J_EE_phase1[0], color=color_list[0], linewidth=plot_line_width)
+    wde12, = ax.plot(l_time_points_stim, J_EE_phase1[1], '--', color=color_list[0], linewidth=plot_line_width)
+    wde21, = ax.plot(l_time_points_stim, J_EE_phase1[2], color=color_list[1], linewidth=plot_line_width)
+    wde22, = ax.plot(l_time_points_stim, J_EE_phase1[3], '--', color=color_list[1], linewidth=plot_line_width)
+
+    plt.xticks(fontsize=font_size_1, **hfont)
+    plt.yticks(fontsize=font_size_1, **hfont)
+
+    plt.ylim([ymin, ymax])
+    plt.yticks([0.3, 0.4, 0.5, 0.6, 0.7, 0.8, ], fontsize=font_size_1, **hfont)
+    plt.xlim([xmin, xmax])
+    plt.xticks([5, 10, 15, 20, 25], fontsize=font_size_1, **hfont)
+    plt.xlabel('Time (s)', fontsize=font_size_label, **hfont)
+    plt.ylabel('Weights', fontsize=font_size_label, **hfont)
+
+    ax.legend([(wde11, wde12), (wde21, wde22)],
+              [r'$w_{A_{1}B_{1}}$, $w_{A_{1}B_{2}}$', '$w_{A_{2}B_{1}}$', r'$w_{A_{2}B_{2}}$'],
+              handler_map={tuple: HandlerTuple(ndivide=None)},
+              fontsize=legend_size, loc='upper left', handlelength=5)
+    plt.tight_layout()
+
+    plt.savefig(name + 'conditioning_wAB' + format)
+    plt.close()
+
+    #########  wBB during conditioning  ###########
+    xmin = 0
+    xmax = stim_times[0][1] + 5
+    ymin = 0.3
+    ymax = 0.8
+    plt.figure(figsize=(figure_width1, figure_len1))
+    ax = plt.gca()
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_visible(True)
+    ax.spines['left'].set_visible(True)
+    for axis in ['top', 'bottom', 'left', 'right']:
+        ax.spines[axis].set_linewidth(line_width)
+    plt.tick_params(width=line_width, length=tick_len)
+    plt.axvspan(stim_times[0][0], stim_times[0][1], color='gray', alpha=0.15)
+
+    wee11, = ax.plot(l_time_points_stim, J_EE_phase1[4], color=color_list[0], linewidth=plot_line_width)
+    wee12, = ax.plot(l_time_points_stim, J_EE_phase1[5], '--', color=color_list[0], linewidth=plot_line_width)
+    wee21, = ax.plot(l_time_points_stim, J_EE_phase1[6], color=color_list[1], linewidth=plot_line_width)
+    wee22, = ax.plot(l_time_points_stim, J_EE_phase1[7], '--', color=color_list[1], linewidth=plot_line_width)
+
+    plt.xticks(fontsize=font_size_1, **hfont)
+    plt.yticks(fontsize=font_size_1, **hfont)
+
+    plt.ylim([ymin, ymax])
+    plt.yticks([0.3, 0.4, 0.5, 0.6, 0.7, 0.8, ], fontsize=font_size_1, **hfont)
+    plt.xlim([xmin, xmax])
+    plt.xticks([5, 10, 15, 20, 25], fontsize=font_size_1, **hfont)
+    plt.xlabel('Time (s)', fontsize=font_size_label, **hfont)
+    plt.ylabel('Weights', fontsize=font_size_label, **hfont)
+
+    ax.legend([(wee11, wee12), (wee21, wee22)],
+              [r'$w_{B_{1}B_{1}}$, $w_{B_{1}B_{2}}$', '$w_{B_{2}B_{1}}$', r'$w_{B_{2}B_{2}}$'],
+              handler_map={tuple: HandlerTuple(ndivide=None)},
+              fontsize=legend_size, loc='upper left', handlelength=5)
+    plt.tight_layout()
+
+    plt.savefig(name + 'conditioning_wBB' + format)
+    plt.close()
+
+    ######### conditioning currents ###########
+    xmin = 0
+    xmax = stim_times[0][1] + 5
+    ymin = 1
+    ymax = 5
+    plt.figure(figsize=(figure_width, figure_len))
+    ax = plt.gca()
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_visible(True)
+    ax.spines['left'].set_visible(True)
+    for axis in ['top', 'bottom', 'left', 'right']:
+        ax.spines[axis].set_linewidth(line_width)
+    plt.tick_params(width=line_width, length=tick_len)
+    plt.axvspan(stim_times[0][0], stim_times[0][1], color='gray', alpha=0.15)
+
+    I_A1, = ax.plot(l_time_points_stim, I_phase1[0], color=color_list[7], linewidth=plot_line_width)
+    I_A2, = ax.plot(l_time_points_stim, I_phase1[1], color=color_list[8], linewidth=plot_line_width)
+    I_B1, = ax.plot(l_time_points_stim, I_phase1[2], color=color_list[9], linewidth=plot_line_width)
+    I_B2, = ax.plot(l_time_points_stim, I_phase1[3], color=color_list[10],linewidth=plot_line_width)
+    I_E1, = ax.plot(l_time_points_stim, I_phase1[4], color=color_list[0], linewidth=plot_line_width)
+    I_E2, = ax.plot(l_time_points_stim, I_phase1[5], color=color_list[1], linewidth=plot_line_width)
+
+    plt.xticks(fontsize=font_size_1, **hfont)
+    plt.yticks(fontsize=font_size_1, **hfont)
+
+    plt.ylim([ymin, ymax])
+    plt.yticks([1, 2, 3, 4, 5], fontsize=font_size_1, **hfont)
+    plt.xlim([xmin, xmax])
+    plt.xticks([5, 10, 15, 20, 25], fontsize=font_size_1, **hfont)
+    plt.xlabel('Time (s)', fontsize=font_size_label, **hfont)
+    plt.ylabel('Currents', fontsize=font_size_label, **hfont)
+    ax.legend([(I_A1, I_A2), (I_B1, I_B2), (I_E1, I_E2), rb, r_at],
+              [r'$I_{A1}$, $I_{A2}$', r'$I_{B1}$, $I_{BD2}$', r'$I_{E1}$, $I_{E2}$'],
+              handler_map={tuple: HandlerTuple(ndivide=None)},
+              fontsize=legend_size, loc='upper left', handlelength=5)
+    plt.tight_layout()
+    plt.savefig(name + 'conditioning_currents' + format)
+    plt.close()
+
+    # plot the long term behaviour only at 48 hours
+    if hour_sim >= 48:
+        l_rE1 = r_phase2[0]; l_rE2 = r_phase2[1]
+        l_rP1 = r_phase2[2]; l_rP2 = r_phase2[3]
+        l_rS1 = r_phase2[4]; l_rS2 = r_phase2[5]
+
+        l_thetaA1, l_thetaA2, l_thetaB1, l_thetaB2, l_thetaE1, l_thetaE2 = set_phase2[0], set_phase2[1], set_phase2[2], set_phase2[3], set_phase2[4], set_phase2[5]
+        l_betaA1, l_betaA2, l_betaB1, l_betaB2, l_betaE1, l_betaE2 = set_phase2[0], set_phase2[1], set_phase2[2], set_phase2[3], set_phase2[4], set_phase2[5]
+        l_IA1, l_IA2, l_IB1, l_IB2, l_IE1, l_IE2 = I_phase2[0], I_phase2[1], I_phase2[2], I_phase2[3], I_phase2[4], I_phase2[5]
+
+
+        l_J_AB11, l_J_AB12, l_J_AB21, l_J_AB22 = J_phase2[0], J_phase2[1], J_phase2[2], J_phase2[3]
+        l_J_BB11, l_J_BB12, l_J_BB21, l_J_BB22 = J_phase2[4], J_phase2[5], J_phase2[6], J_phase2[7]
+        l_J_EP11, l_J_EP12, l_J_EP21, l_J_EP22 = J_phase2[8], J_phase2[9], J_phase2[10],J_phase2[11]
+        l_J_AS11, l_J_AS12, l_J_AS21, l_J_AS22 = J_phase2[12],J_phase2[13],J_phase2[14],J_phase2[15]
+
+        # rates ALL
+        xmin = 0
+        xmax = l_time_points_phase2[-1]
+        ymin = 0.5
+        ymax = 2.5
+        plt.figure(figsize=(figure_width1, figure_len1))
+        ax = plt.gca()
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['bottom'].set_visible(True)
+        ax.spines['left'].set_visible(True)
+        for axis in ['top', 'bottom', 'left', 'right']:
+            ax.spines[axis].set_linewidth(line_width)
+        plt.tick_params(width=line_width, length=tick_len)
+
+        p1, = ax.plot(l_time_points_phase2, l_rP1, color=color_list[2], linewidth=plot_line_width)
+        p2, = ax.plot(l_time_points_phase2, l_rP2, color=color_list[3], linewidth=plot_line_width)
+        s1, = ax.plot(l_time_points_phase2, l_rS1, color=color_list[4], linewidth=plot_line_width)
+        s2, = ax.plot(l_time_points_phase2, l_rS2, color=color_list[5], linewidth=plot_line_width)
+        e1, = ax.plot(l_time_points_phase2, l_rE1, color=color_list[0], linewidth=plot_line_width)
+        e2, = ax.plot(l_time_points_phase2, l_rE2, color=color_list[1], linewidth=plot_line_width)
+        r_at, = plt.plot(l_time_points_phase2, av_threshold * np.ones_like(l_time_points_phase2), dash_capstyle='round',
+                         linestyle=line_style_r_at, color=color_list[0], linewidth=plot_line_width)
+        rb, = plt.plot(l_time_points_phase2, r_phase1[0][0] * np.ones_like(l_time_points_phase2), dash_capstyle='round',
+                       linestyle=line_style_rb, color=color_list[0], linewidth=plot_line_width*1.3)
+
+        plt.vlines(4,  ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
+        plt.vlines(24, ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
+        plt.vlines(48, ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
+
+        plt.xticks(fontsize=font_size_1, **hfont)
+        plt.yticks(fontsize=font_size_1, **hfont)
+
+        plt.ylim([ymin, ymax])
+        plt.yticks([0.5, 1, 1.5, 2, 2.5], fontsize=font_size_1, **hfont)
+        plt.xlim([xmin, xmax])
+        plt.xticks([4, 24, 48], fontsize=font_size_1, **hfont)
+        plt.xlabel(x_label_text, fontsize=font_size_label, **hfont)
+        plt.ylabel('Firing rate', fontsize=font_size_label, **hfont)
+        ax.legend([(e1, e2), (p1, p2), (s1, s2), rb, r_at],
+                  [r'$r_{E1}$, $r_{E2}$', '$r_{P1}$, $r_{P2}$', '$r_{S1}$, $r_{S2}$', '$r_{b}$', '$r_{at}$'],
+                  handler_map={tuple: HandlerTuple(ndivide=None)}, fontsize=legend_size, loc='upper right',
+                  handlelength=3)
+
+        plt.tight_layout()
+        plt.savefig(name + '_long_ALL_rates' + format)
+        plt.close()
+
+
+
+        # currents
+        ymin = 1
+        ymax = 5
+        xmin = 0
+        xmax = l_time_points_phase2[-1]
+        plt.figure(figsize=(figure_width1, figure_len1))
+        ax = plt.gca()
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['bottom'].set_visible(True)
+        ax.spines['left'].set_visible(True)
+        for axis in ['top', 'bottom', 'left', 'right']:
+            ax.spines[axis].set_linewidth(line_width)
+        plt.tick_params(width=line_width, length=tick_len)
+
+        I_A1, = ax.plot(l_time_points_phase2, l_IA1, color=color_list[7], linewidth=plot_line_width)
+        I_A2, = ax.plot(l_time_points_phase2, l_IA2, color=color_list[8], linewidth=plot_line_width)
+        I_B1, = ax.plot(l_time_points_phase2, l_IB1, color=color_list[9], linewidth=plot_line_width)
+        I_B2, = ax.plot(l_time_points_phase2, l_IB2, color=color_list[10],linewidth=plot_line_width)
+        I_E1, = ax.plot(l_time_points_phase2, l_IE1, color=color_list[0], linewidth=plot_line_width)
+        I_E2, = ax.plot(l_time_points_phase2, l_IE2, color=color_list[1], linewidth=plot_line_width)
+
+        plt.vlines(4,  ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
+        plt.vlines(24, ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
+        plt.vlines(48, ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
+
+        plt.xticks(fontsize=font_size_1, **hfont)
+        plt.yticks(fontsize=font_size_1, **hfont)
+
+        plt.ylim([ymin, ymax])
+        plt.yticks([1, 2, 3, 4, 5], fontsize=font_size_1, **hfont)
+        plt.xlim([xmin, xmax])
+        plt.xticks([4, 24, 48], fontsize=font_size_1, **hfont)
+        plt.xlabel(x_label_text, fontsize=font_size_label, **hfont)
+        plt.ylabel('Currents', fontsize=font_size_label, **hfont)
+        ax.legend([(I_A1, I_A2), (I_B1, I_B2), (I_E1, I_E2), rb, r_at],
+                  [r'$I_{A1}$, $I_{A2}$', r'$I_{B1}$, $I_{B2}$', r'$I_{E1}$, $I_{E2}$'],
+                  handler_map={tuple: HandlerTuple(ndivide=None)},
+                  fontsize=legend_size, loc='upper left', handlelength=5)
+        plt.tight_layout()
+        plt.savefig(name + '_long_currents' + format)
+        plt.close()
+
+
+        # thetas
+        ymin = 1
+        ymax = 5
+        xmin = 0
+        xmax = l_time_points_phase2[-1]
+        plt.figure(figsize=(figure_width, figure_len))
+        ax = plt.gca()
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['bottom'].set_visible(True)
+        ax.spines['left'].set_visible(True)
+        for axis in ['top', 'bottom', 'left', 'right']:
+            ax.spines[axis].set_linewidth(line_width)
+        plt.tick_params(width=line_width, length=tick_len)
+
+        thetaA1, = ax.plot(l_time_points_phase2, l_thetaA1, color=color_list[7], linewidth=plot_line_width)
+        thetaA2, = ax.plot(l_time_points_phase2, l_thetaA2, color=color_list[8], linewidth=plot_line_width)
+        thetaB1, = ax.plot(l_time_points_phase2, l_thetaB1, color=color_list[9], linewidth=plot_line_width)
+        thetaB2, = ax.plot(l_time_points_phase2, l_thetaB2, color=color_list[10],linewidth=plot_line_width)
+        thetaE1, = ax.plot(l_time_points_phase2, l_thetaE1, color=color_list[0], linewidth=plot_line_width)
+        thetaE2, = ax.plot(l_time_points_phase2, l_thetaE2, color=color_list[1], linewidth=plot_line_width)
+        r_at, = plt.plot(l_time_points_phase2, av_threshold * np.ones_like(l_time_points_phase2), dash_capstyle='round',
+                         linestyle=line_style_r_at, color=color_list[0], linewidth=plot_line_width)
+        rb, = plt.plot(l_time_points_phase2, r_phase1[0][0] * np.ones_like(l_time_points_phase2), dash_capstyle='round',
+                       linestyle=line_style_rb, color=color_list[0], linewidth=plot_line_width*1.3)
+
+        plt.vlines(4,  ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
+        plt.vlines(24, ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
+        plt.vlines(48, ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
+
+        plt.xticks(fontsize=font_size_1, **hfont)
+        plt.yticks(fontsize=font_size_1, **hfont)
+
+        plt.ylim([ymin, ymax])
+        plt.yticks([1, 2, 3, 4, 5], fontsize=font_size_1, **hfont)
+        plt.xlim([xmin, xmax])
+        plt.xticks([4, 24, 48], fontsize=font_size_1, **hfont)
+        plt.xlabel(x_label_text, fontsize=font_size_label, **hfont)
+        plt.ylabel(r'Set-point $\theta$', fontsize=font_size_label, **hfont)
+        ax.legend([(thetaA1, thetaA2), (thetaB1, thetaB2), (thetaE1, thetaE2), rb, r_at],
+                  [r'$\theta_{A1}$, $\theta_{A2}$', r'$\theta_{B1}$, $\theta_{B2}$', r'$\theta_{E1}$, $\theta_{E2}$', '$r_b$', '$r_{at}$'],
+                  handler_map={tuple: HandlerTuple(ndivide=None)},
+                  fontsize=legend_size, loc='upper left', handlelength=5)
+
+        plt.tight_layout()
+
+        plt.savefig(name + '_long_thetas' + format)
+        plt.close()
+
+
+        # betas
+        ymin = 1
+        ymax = 5
+        xmin = 0
+        xmax = l_time_points_phase2[-1]
+        plt.figure(figsize=(figure_width, figure_len))
+        ax = plt.gca()
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['bottom'].set_visible(True)
+        ax.spines['left'].set_visible(True)
+        for axis in ['top', 'bottom', 'left', 'right']:
+            ax.spines[axis].set_linewidth(line_width)
+        plt.tick_params(width=line_width, length=tick_len)
+
+        betaA1, = ax.plot(l_time_points_phase2, l_betaA1, color=color_list[7], linewidth=plot_line_width)
+        betaA2, = ax.plot(l_time_points_phase2, l_betaA2, color=color_list[8], linewidth=plot_line_width)
+        betaB1, = ax.plot(l_time_points_phase2, l_betaB1, color=color_list[9], linewidth=plot_line_width)
+        betaB2, = ax.plot(l_time_points_phase2, l_betaB2, color=color_list[10],linewidth=plot_line_width)
+        betaE1, = ax.plot(l_time_points_phase2, l_betaE1, color=color_list[0], linewidth=plot_line_width)
+        betaE2, = ax.plot(l_time_points_phase2, l_betaE2, color=color_list[1], linewidth=plot_line_width)
+        r_at, = plt.plot(l_time_points_phase2, av_threshold * np.ones_like(l_time_points_phase2), dash_capstyle='round',
+                         linestyle=line_style_r_at, color=color_list[0], linewidth=plot_line_width)
+        rb, = plt.plot(l_time_points_phase2, r_phase1[0][0] * np.ones_like(l_time_points_phase2), dash_capstyle='round',
+                       linestyle=line_style_rb, color=color_list[0], linewidth=plot_line_width*1.3)
+
+        plt.vlines(4,  ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
+        plt.vlines(24, ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
+        plt.vlines(48, ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
+
+        plt.xticks(fontsize=font_size_1, **hfont)
+        plt.yticks(fontsize=font_size_1, **hfont)
+
+        plt.ylim([ymin, ymax])
+        plt.yticks([1, 2, 3, 4, 5], fontsize=font_size_1, **hfont)
+        plt.xlim([xmin, xmax])
+        plt.xticks([4, 24, 48], fontsize=font_size_1, **hfont)
+        plt.xlabel(x_label_text, fontsize=font_size_label, **hfont)
+        plt.ylabel(r'Set-point regulator $\beta$', fontsize=font_size_label, **hfont)
+        ax.legend([(betaA1, betaA2), (betaB1, betaB2), (betaE1, betaE2), rb, r_at],
+                  [r'$\beta_{A1}$, $\beta_{A2}$', r'$\beta_{B1}$, $\beta_{B2}$', r'$\beta_{E1}$, $\beta_{E2}$', '$r_b$', '$r_{at}$'],
+                  handler_map={tuple:HandlerTuple(ndivide=None)}, fontsize=legend_size, loc='upper left',handlelength=5)
+        plt.tight_layout()
+
+        plt.savefig(name + '_long_betas' + format)
+        plt.close()
+
+
+
+        ######### All plastic weights during scaling ##########
+
+        # wAB
+        ymin = 0.3
+        ymax = 0.8
+        plt.figure(figsize=(figure_width1, figure_len1))
+        ax = plt.gca()
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['bottom'].set_visible(True)
+        ax.spines['left'].set_visible(True)
+        for axis in ['top', 'bottom', 'left', 'right']:
+            ax.spines[axis].set_linewidth(line_width)
+        plt.tick_params(width=line_width, length=tick_len)
+        mag_of_y = ax.yaxis.get_offset_text()
+        mag_of_y.set_size(font_size_1)
+
+        wAB11, = ax.plot(l_time_points_phase2, l_J_AB11, linewidth=plot_line_width, color=color_list[7])
+        wAB12, = ax.plot(l_time_points_phase2, l_J_AB12, '--', linewidth=plot_line_width, color=color_list[7])
+        wAB21, = ax.plot(l_time_points_phase2, l_J_AB21, linewidth=plot_line_width, color=color_list[8])
+        wAB22, = ax.plot(l_time_points_phase2, l_J_AB22, '--', linewidth=plot_line_width, color=color_list[8])
+        ax.legend([(wAB11, wAB12), (wAB21, wAB22)],
+                  [r'$w_{A_{1}B_{1}}$, $w_{A_{1}B_{2}}$', r'$w_{A_{2}B_{1}}$, $w_{A_{2}B_{2}}$'],
+                  handler_map={tuple: HandlerTuple(ndivide=None)}, fontsize=legend_size,
+                  loc='upper right', handlelength=3)
+
+        plt.xticks(fontsize=font_size_1, **hfont)
+        plt.yticks(fontsize=font_size_1, **hfont)
+
+        plt.ylim([ymin, ymax])
+        plt.yticks([0.3, 0.4, 0.5, 0.6, 0.7, 0.8], fontsize=font_size_1, **hfont)
+        plt.xlim([xmin, xmax])
+        plt.xticks([4, 24, 48], fontsize=font_size_1, **hfont)
+        plt.xlabel(x_label_text, fontsize=font_size_label, **hfont)
+        plt.ylabel(r'$W_{AB}$ connections', fontsize=font_size_label, **hfont)
+        plt.tight_layout()
+
+        plt.savefig(name + '_long_W_AB' + format)
+        plt.close()
+
+        # wBB
+        ymin = 0.3
+        ymax = 0.8
+        plt.figure(figsize=(figure_width1, figure_len1))
+        ax = plt.gca()
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['bottom'].set_visible(True)
+        ax.spines['left'].set_visible(True)
+        for axis in ['top', 'bottom', 'left', 'right']:
+            ax.spines[axis].set_linewidth(line_width)
+        plt.tick_params(width=line_width, length=tick_len)
+        mag_of_y = ax.yaxis.get_offset_text()
+        mag_of_y.set_size(font_size_1)
+
+        wBB11, = ax.plot(l_time_points_phase2, l_J_BB11, linewidth=plot_line_width, color=color_list[0])
+        wBB12, = ax.plot(l_time_points_phase2, l_J_BB12, '--', linewidth=plot_line_width, color=color_list[0])
+        wBB21, = ax.plot(l_time_points_phase2, l_J_BB21, linewidth=plot_line_width, color=color_list[1])
+        wBB22, = ax.plot(l_time_points_phase2, l_J_BB22, '--', linewidth=plot_line_width, color=color_list[1])
+        ax.legend([(wBB11, wBB12), (wBB21, wBB22)],
+                  [r'$w_{B_{1}B_{1}}$, $w_{B_{1}B_{2}}$', r'$w_{B_{2}B_{1}}$, $w_{B_{2}B_{2}}$'],
+                  handler_map={tuple: HandlerTuple(ndivide=None)}, fontsize=legend_size,
+                  loc='upper right', handlelength=3)
+
+        plt.xticks(fontsize=font_size_1, **hfont)
+        plt.yticks(fontsize=font_size_1, **hfont)
+
+        plt.ylim([ymin, ymax])
+        plt.yticks([0.3, 0.4, 0.5, 0.6, 0.7, 0.8], fontsize=font_size_1, **hfont)
+        plt.xlim([xmin, xmax])
+        plt.xticks([4, 24, 48], fontsize=font_size_1, **hfont)
+        plt.xlabel(x_label_text, fontsize=font_size_label, **hfont)
+        plt.ylabel(r'$W_{BB}$ connections', fontsize=font_size_label, **hfont)
+        plt.tight_layout()
+
+        plt.savefig(name + '_long_W_BB' + format)
+        plt.close()
+
+        # wEP
+        ymin = 0
+        ymax = 0.75
+        plt.figure(figsize=(figure_width2, figure_len2))
+        ax = plt.gca()
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['bottom'].set_visible(True)
+        ax.spines['left'].set_visible(True)
+        for axis in ['top', 'bottom', 'left', 'right']:
+            ax.spines[axis].set_linewidth(line_width)
+        plt.tick_params(width=line_width, length=tick_len)
+        mag_of_y = ax.yaxis.get_offset_text()
+        mag_of_y.set_size(font_size_1)
+
+        wEP11, = ax.plot(l_time_points_phase2, l_J_EP11, linewidth=plot_line_width, color=color_list[2])
+        wEP12, = ax.plot(l_time_points_phase2, l_J_EP12, '--', linewidth=plot_line_width, color=color_list[2])
+        wEP21, = ax.plot(l_time_points_phase2, l_J_EP21, linewidth=plot_line_width, color=color_list[3])
+        wEP22, = ax.plot(l_time_points_phase2, l_J_EP22, '--', linewidth=plot_line_width, color=color_list[3])
+        ax.legend([(wEP11, wEP12), (wEP21, wEP22)],
+                  [r'$w_{E_{1}P_{1}}$, $w_{E_{1}P_{2}}$', r'$w_{E_{2}P_{1}}$, $w_{E_{2}P_{2}}$'],
+                  handler_map={tuple: HandlerTuple(ndivide=None)}, fontsize=legend_size,
+                  loc='upper right', handlelength=3)
+
+        plt.xticks(fontsize=font_size_1, **hfont)
+        plt.yticks(fontsize=font_size_1, **hfont)
+
+        plt.ylim([ymin, ymax])
+        plt.yticks([0, 0.25, 0.5, 0.75], fontsize=font_size_1, **hfont)
+        plt.xlim([xmin, xmax])
+        plt.xticks([4, 24, 48], fontsize=font_size_1, **hfont)
+        plt.xlabel(x_label_text, fontsize=font_size_label, **hfont)
+        plt.ylabel(r'$W_{EP}$ connections', fontsize=font_size_label, **hfont)
+        plt.tight_layout()
+
+        plt.savefig(name + '_long_W_EP' + format)
+        plt.close()
+
+        # wAS
+        ymin = 0
+        ymax = 0.75
+        plt.figure(figsize=(figure_width2, figure_len2))
+        ax = plt.gca()
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['bottom'].set_visible(True)
+        ax.spines['left'].set_visible(True)
+        for axis in ['top', 'bottom', 'left', 'right']:
+            ax.spines[axis].set_linewidth(line_width)
+        plt.tick_params(width=line_width, length=tick_len)
+        mag_of_y = ax.yaxis.get_offset_text()
+        mag_of_y.set_size(font_size_1)
+
+        wAS11, = ax.plot(l_time_points_phase2, l_J_AS11, linewidth=plot_line_width, color=color_list[4])
+        wAS12, = ax.plot(l_time_points_phase2, l_J_AS12, '--', linewidth=plot_line_width, color=color_list[4])
+        wAS21, = ax.plot(l_time_points_phase2, l_J_AS21, linewidth=plot_line_width, color=color_list[5])
+        wAS22, = ax.plot(l_time_points_phase2, l_J_AS22, '--', linewidth=plot_line_width, color=color_list[5])
+        ax.legend([(wAS11, wAS12), (wAS21, wAS22)],
+                  [r'$w_{A_{1}S_{1}}$, $w_{A_{1}S_{2}}$', r'$w_{A_{2}S_{1}}$, $w_{A_{2}S_{2}}$'],
+                  handler_map={tuple: HandlerTuple(ndivide=None)}, fontsize=legend_size,
+                  loc='upper right', handlelength=3)
+
+        plt.xticks(fontsize=font_size_1, **hfont)
+        plt.yticks(fontsize=font_size_1, **hfont)
+
+        plt.ylim([ymin, ymax])
+        plt.yticks([0, 0.25, 0.5, 0.75], fontsize=font_size_1, **hfont)
+        plt.xlim([xmin, xmax])
+        plt.xticks([4, 24, 48], fontsize=font_size_1, **hfont)
+        plt.xlabel(x_label_text, fontsize=font_size_label, **hfont)
+        plt.ylabel(r'$W_{AS}$ connections', fontsize=font_size_label, **hfont)
+        plt.tight_layout()
+
+        plt.savefig(name + '_long_W_AS' + format)
         plt.close()
 
 
