@@ -55,6 +55,8 @@ def model(delta_t, hold_every, res_rates, res_weights, sim_duration, weights, ba
     counter1, counter2 , counter3 = 0, 0, 0
     i_1, i_2, i_3 = 0, 0, 0
     stim_applied = 0
+    #print('line 187 in model.py !!!!!!!!!W term in ss formula is commented out!!!!!!!')
+    #print('weight lower bound lifter. line 223 model.py')
 
     for step in range(sim_duration):
         if step == int((stim_start + 2) * (1 / delta_t)): # if stim on
@@ -181,7 +183,8 @@ def model(delta_t, hold_every, res_rates, res_weights, sim_duration, weights, ba
             heb_term_EE22 = learning_rate * delta_t * (1 / tau_plas) * ((E2 - initial_theta_mean) * E2)
 
         # preventing ratios getting very large when thetas approach to zero
-        ratio_E1 = max(E1, 1e-2) / max(theta1,1e-2); ratio_E2 = max(E2, 1e-2) / max(theta2,1e-2)
+        #ratio_E1 = max(E1, 1e-2) / max(theta1,1e-2); ratio_E2 = max(E2, 1e-2) / max(theta2,1e-2)
+        ratio_E1 = E1 / theta1; ratio_E2 = E2 / theta2
         p_e = 1; p_p = 1; p_s = 1
 
         ss1_e = exc_scal_mask * delta_t * (1 / tau_scaling_E) * ((1 - ratio_E1)**p_e)
@@ -197,16 +200,14 @@ def model(delta_t, hold_every, res_rates, res_weights, sim_duration, weights, ba
         EE120 = EE120 + ss1_e*EE120
         EE210 = EE210 + ss2_e*EE210
         EE220 = EE220 + ss2_e*EE220
-
-        EP11 = EP110 - ss1_p*EP110
-        EP12 = EP120 - ss1_p*EP120
-        EP21 = EP210 - ss2_p*EP210
-        EP22 = EP220 - ss2_p*EP220
-
-        ES11 = ES110 + ss1_s*ES110
-        ES12 = ES120 + ss1_s*ES120
-        ES21 = ES210 + ss2_s*ES210
-        ES22 = ES220 + ss2_s*ES220
+        EP11  = EP110 - ss1_p*EP110
+        EP12  = EP120 - ss1_p*EP120
+        EP21  = EP210 - ss2_p*EP210
+        EP22  = EP220 - ss2_p*EP220
+        ES11  = ES110 + ss1_s*ES110
+        ES12  = ES120 + ss1_s*ES120
+        ES21  = ES210 + ss2_s*ES210
+        ES22  = ES220 + ss2_s*ES220
 
         # in order to have hebbian plasticity in the absence of synaptic scaling, it is defined here
         EE11 = EE110 + heb_term_EE11
@@ -1426,6 +1427,7 @@ def model_2_compartmental_loc_all_to_all(delta_t, hold_every, res_rates, res_wei
 @jit(nopython=True)
 def model_3_compartmental(delta_t, sampling_rate, l_res_rates, l_res_weights, sim_duration, weights, g,
           g_stim, stim_times, taus, K, rheobases, lambdas, flags=(1,1,1,1,1,1), flags_theta=(1,1)):
+    print('line 1638 in model.py !!!!!!!!!W term in ss formula is commented out!!!!!!!')
 
     ##### Initializing the setup
     (sampling_rate_stim, sampling_rate_sim) = sampling_rate
@@ -1621,8 +1623,8 @@ def model_3_compartmental(delta_t, sampling_rate, l_res_rates, l_res_weights, si
         # Ratios in the synaptic scaling equations are calculated. Numba operates with 32-bit floating numbers at least.
         # By Novermber 2023, there is no half-precision float support. Thus, both nominator and denominator is bounded by
         # 1e2 as lower limit in order to prevent really high output after division when they are super small.
-        ratio_AD1 = max(I_AD1, 1e-2) / max(thetaAD1,1e-2); ratio_AD2 = max(I_AD2, 1e-2) / max(thetaAD2,1e-2)
-        ratio_BD1 = max(I_BD1, 1e-2) / max(thetaBD1,1e-2); ratio_BD2 = max(I_BD2, 1e-2) / max(thetaBD2,1e-2)
+        ratio_AD1 = max(I_AD1, 1e-3) / max(thetaAD1,1e-3); ratio_AD2 = max(I_AD2, 1e-3) / max(thetaAD2,1e-3)
+        ratio_BD1 = max(I_BD1, 1e-3) / max(thetaBD1,1e-3); ratio_BD2 = max(I_BD2, 1e-3) / max(thetaBD2,1e-3)
         ratio_E1 = max(I_E1, 1e-2) / max(thetaE1,1e-2); ratio_E2 = max(I_E2, 1e-2) / max(thetaE2,1e-2)
 
         # Synaptic scaling terms are calculated and applied
@@ -1635,25 +1637,25 @@ def model_3_compartmental(delta_t, sampling_rate, l_res_rates, l_res_weights, si
         ss1_W_DS = S_scaling_flag * delta_t * (1/tau_scaling_S) * (1-ratio_AD1)
         ss2_W_DS = S_scaling_flag * delta_t * (1/tau_scaling_S) * (1-ratio_AD2)
 
-        DE110 = DE110 + ss1_W_DE*DE110
-        DE120 = DE120 + ss1_W_DE*DE120
-        DE210 = DE210 + ss2_W_DE*DE210
-        DE220 = DE220 + ss2_W_DE*DE220
+        DE110 = DE110 + ss1_W_DE#*DE110
+        DE120 = DE120 + ss1_W_DE#*DE120
+        DE210 = DE210 + ss2_W_DE#*DE210
+        DE220 = DE220 + ss2_W_DE#*DE220
 
-        EE110 = EE110 + ss1_W_EE*EE110
-        EE120 = EE120 + ss1_W_EE*EE120
-        EE210 = EE210 + ss2_W_EE*EE210
-        EE220 = EE220 + ss2_W_EE*EE220
+        EE110 = EE110 + ss1_W_EE#*EE110
+        EE120 = EE120 + ss1_W_EE#*EE120
+        EE210 = EE210 + ss2_W_EE#*EE210
+        EE220 = EE220 + ss2_W_EE#*EE220
 
-        EP11 = EP110 - ss1_W_EP*EP110
-        EP12 = EP120 - ss1_W_EP*EP120
-        EP21 = EP210 - ss2_W_EP*EP210
-        EP22 = EP220 - ss2_W_EP*EP220
+        EP11 = EP110 - ss1_W_EP#*EP110
+        EP12 = EP120 - ss1_W_EP#*EP120
+        EP21 = EP210 - ss2_W_EP#*EP210
+        EP22 = EP220 - ss2_W_EP#*EP220
 
-        DS11 = DS110 + ss1_W_DS*DS110
-        DS12 = DS120 + ss1_W_DS*DS120
-        DS21 = DS210 + ss2_W_DS*DS210
-        DS22 = DS220 + ss2_W_DS*DS220
+        DS11 = DS110 + ss1_W_DS#*DS110
+        DS12 = DS120 + ss1_W_DS#*DS120
+        DS21 = DS210 + ss2_W_DS#*DS210
+        DS22 = DS220 + ss2_W_DS#*DS220
 
         # Hebbian terms are calculated and applied
         heb_term11 = hebbian_flag * learning_rate * delta_t * (1 / tau_plas) * (E1 - r_baseline) * E1
