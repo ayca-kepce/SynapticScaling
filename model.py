@@ -7,31 +7,26 @@ from util import *
 
 
 @jit(nopython=True)
-def model(delta_t, hold_every, res_rates, res_weights, sim_duration, weights, back_inputs,
-          stim_trains, stim_times, taus, beta_K, rheobases,
+def model(delta_t, sampling_rate, l_res_rates, l_res_weights, sim_duration, weights, g,
+          g_stim, stim_times, taus, beta_K, rheobases,
           flags=(0, 0, 0, 0, 0, 0), flags_theta = (1,1)):
-
-    (hold_every_stimuli, hold_every_simulation) = hold_every
-    (r_phase1, r_phase2, r_phase3, max_E) = res_rates
-    (J_EE_phase1, J_phase2) = res_weights
-    theta1,theta2 = 1,1
-    learning_rate = 1
-
+    
+    ##### Initializing the setup
+    (sampling_rate_stim, sampling_rate_sim) = sampling_rate
+    (r_phase1, r_phase2, r_phase3, max_E) = l_res_rates
+    (J_exc_phase1, J_phase2) = l_res_weights
     (w_EEii, w_EPii, w_ESii, w_PEii, w_PPii, w_PSii, w_SEii,
      w_EEij, w_EPij, w_ESij, w_PEij, w_PPij, w_PSij, w_SEij) = weights
-    (g_E, g_P, g_S, g_top_down_to_S) = back_inputs
-    (stim_train_E,stim_train_P, stim_train_S) = stim_trains
+    (g_E, g_P, g_S, g_top_down_to_S) = g
+    g_S_total = g_S # total input to S is equal to g_S before the offset of the conditioning
+    (g_stim_E, g_stim_P, g_stim_S) = g_stim
     (stim_start, stim_stop) = stim_times[0]
     (tau_E, tau_P, tau_S, tau_plas,
      tau_scaling_E, tau_scaling_P, tau_scaling_S,
      tau_theta, tau_beta) = taus
-    (rheobase_E,rheobase_P,rheobase_S) = rheobases
+    (rheobase_E, rheobase_P, rheobase_S) = rheobases
 
-    (hebbian_plasticity_flag, exc_scaling_flag, inh_scaling_flag_p, inh_scaling_flag_s,
-     adaptive_threshold_flag, adaptive_LR_flag)= flags
-    (flag_theta_shift, flag_theta_local) = flags_theta
-
-    # setting up initial conditions
+    # Setting up initial conditions
     E01, E02, P01, P02, S01, S02 = 1,1,1,1,1,1 #10,10,10,10,10,10
     EE110, EE120, EE210, EE220 = w_EEii, w_EEij, w_EEij, w_EEii
     EP110, EP120, EP210, EP220 = w_EPii, w_EPij, w_EPij, w_EPii
@@ -40,98 +35,108 @@ def model(delta_t, hold_every, res_rates, res_weights, sim_duration, weights, ba
     max_E[0] = 0
     stimulus_E1, stimulus_P1, stimulus_S1 = 0, 0, 0
     stimulus_E2, stimulus_P2, stimulus_S2 = 0, 0, 0
-    heb_plas_mask = 0; exc_scal_mask = 0; inh_scal_mask_p = 0; inh_scal_mask_s = 0
-    adaptive_threshold_mask = 0; adaptive_LR_mask = 0
 
-    heb_term_EE11, heb_term_EE12, heb_term_EE21, heb_term_EE22 = 0, 0, 0, 0
-    initial_theta_mean = 0
-    beta1 = 1
-    beta2 = 1
+    learning_rate = 1
+    r_baseline = 0
+    theta1, theta2 = 1, 1
+    beta1, beta2 = 1, 1
 
-    # info-holder counter (counter) and index (idx) to fill the arrays. np.mod doesn't
-    # work in numba, thus we need counter to hold data at every "hold_every" step
-    phase1 = 0
-    phase3 = 0
-    counter1, counter2 , counter3 = 0, 0, 0
-    i_1, i_2, i_3 = 0, 0, 0
-    stim_applied = 0
-    #print('line 187 in model.py !!!!!!!!!W term in ss formula is commented out!!!!!!!')
-    #print('weight lower bound lifter. line 223 model.py')
+    # Flags of the plasticity mechanisms are initialized here
+    hebbian_flag, three_factor_flag, adaptive_set_point_flag, E_scaling_flag, P_scaling_flag, S_scaling_flag = 0, 0, 0, 0, 0, 0
+    flag_theta_shift, flag_theta_local = 0, 0
 
+    # Counters and indices are initialized for different phases
+    # (counter and i (index) to fill the arrays. np.mod doesn't work in numba,
+    # thus we need counters to hold data at every "sampling_rate" step)
+    phase1, phase3 = 0,0
+    counter1, counter2 , counter3 = 0,0,0 # Counter to hold data with the respective sampling rate
+    i_1, i_2, i_3 = 0,0,0 # Index to fill the data arrays
+
+    stim_applied = 0  # The number of stimulation applied is held
+
+
+    ##### The loop of the numerical iterations
     for step in range(sim_duration):
-        if step == int((stim_start + 2) * (1 / delta_t)): # if stim on
-            if stim_applied == 0: # if first stim
-                (theta1, theta2) = (E1,E2)
-                initial_theta_mean = (theta1 + theta2) / 2
-                beta1 = initial_theta_mean - beta_K
-                beta2 = initial_theta_mean - beta_K
 
-                heb_plas_mask = hebbian_plasticity_flag
-                exc_scal_mask = exc_scaling_flag
-                inh_scal_mask_p = inh_scaling_flag_p
-                inh_scal_mask_s = inh_scaling_flag_s
 
-                adaptive_threshold_mask = (heb_plas_mask or exc_scal_mask or inh_scal_mask_p) and adaptive_threshold_flag
-                adaptive_LR_mask = heb_plas_mask and adaptive_LR_flag
-                if adaptive_LR_mask:
+        ### If it is the start of the stimulation
+        if step == int((stim_start + 2) * (1 / delta_t)):
+            # If it is the first stimuli (conditioning)
+            if stim_applied == 0:
+                r_baseline = E1
+                theta1, theta2 = r_baseline, r_baseline
+                beta1, beta2 = r_baseline - beta_K, r_baseline - beta_K
+
+                (hebbian_flag, three_factor_flag, adaptive_set_point_flag,
+                 E_scaling_flag, P_scaling_flag, S_scaling_flag) = flags
+                (flag_theta_shift, flag_theta_local) = flags_theta
+
+                # Hebbian learning is activated at conditioning onset
+                if hebbian_flag:
                     learning_rate = 1
 
+            if stim_applied == 1:  # If it is the second stimuli (testing)
+                # Stop the data-holder counter by setting the counter2 to a high value
+                counter2 = sampling_rate_sim + 5  # stop the data-holder counter
+
+            # Stimulation of the selected cells for the respected stimuli is set
+            stimulus_E1, stimulus_E2 = g_stim_E[stim_applied]
+            stimulus_P1, stimulus_P2 = g_stim_P[stim_applied]
+            stimulus_S1, stimulus_S2 = g_stim_S[stim_applied]
+
+            # Increase the no stim applied
+            stim_applied = stim_applied + 1
+
+
+        ### If it is the end of the stimulation
+        if step == int((stim_stop + 2)*(1/delta_t)):
+            # The offset of the conditioning
             if stim_applied == 1:
-                counter2 = hold_every_simulation + 5  # stop the data-holder counter
+                g_S_total = g_S + g_top_down_to_S # Add top-down input to S
+                counter2 = sampling_rate_sim  # Start the data-holder counter
 
-            stimulus_E1, stimulus_E2 = stim_train_E[stim_applied]
-            stimulus_P1, stimulus_P2 = stim_train_P[stim_applied]
-            stimulus_S1, stimulus_S2 = stim_train_S[stim_applied]
-
-            # if there is more than 1 stimulation, it increases the index number in the stim_times list
-            stim_applied = stim_applied + 1 # increase the no stim applied
-
-        if step == int((stim_stop + 2)*(1/delta_t)): # if stim off
-            g_S = 3 + g_top_down_to_S
-
-            if stim_applied == 1:
-                counter2 = hold_every_simulation  # start the data-holder counter
-
-            # hebbian is turned off for the testing
-            if adaptive_LR_mask:
+            # Hebbian learning is turned off due to the third factor
+            if three_factor_flag:
                 learning_rate = 0
 
+            # All stimuli are turned off
             stimulus_E1, stimulus_E2 = 0, 0
             stimulus_P1, stimulus_P2 = 0, 0
             stimulus_S1, stimulus_S2 = 0, 0
 
-            if stim_times.shape[0] > stim_applied: # set the new timing for the next stim if exists
+            # Set the new timing for the next stim if exists
+            if stim_times.shape[0] > stim_applied:
                 (stim_start, stim_stop) = stim_times[stim_applied]
 
         # setting the counters for phase 1 and 3 with 5 seconds of
         if step == int(2*(1/delta_t)):
-            counter1 = hold_every_stimuli  # start the data-holder counter1
+            counter1 = sampling_rate_stim  # Start the data-holder counter1
             phase1 = 1
         elif step == int((stim_times[0][1] + 5 + 2) * (1 / delta_t)):
             phase1 = 0
 
         elif step == int((stim_times[1][0] - 5 + 2) * (1 / delta_t)):
-            counter3 = hold_every_stimuli  # start the data-holder counter3
+            counter3 = sampling_rate_stim  # Start the data-holder counter3
             phase3 = 1
         elif step == int((stim_times[1][1] + 5 + 2) * (1 / delta_t)):
             phase3 = 0
 
 
-        # values are assigned to the lists
-        if phase1 and counter1 == hold_every_stimuli:
+        ### Data is registered to the arrays
+        if phase1 and counter1 == sampling_rate_stim:
             r_phase1[:,i_1] = [E01, E02, P01, P02, S01, S02]
-            J_EE_phase1[:,i_1] = [EE110, EE120, EE210, EE220]
+            J_exc_phase1[:,i_1] = [EE110, EE120, EE210, EE220]
 
             i_1 = i_1 + 1
             counter1 = 0  # restart
 
-        elif phase3 and counter3 == hold_every_stimuli:
+        elif phase3 and counter3 == sampling_rate_stim:
             r_phase3[:,i_3] = [E01, E02, P01, P02, S01, S02]
 
             i_3 = i_3 + 1
             counter3 = 0  # restart
 
-        if stim_applied == 1 and counter2 == hold_every_simulation:
+        if stim_applied == 1 and counter2 == sampling_rate_sim:
             r_phase2[:,i_2] = [E01, E02, P01, P02, S01, S02, theta1, theta2, beta1, beta2]
             J_phase2[:,i_2] = [EE110, EE120, EE210, EE220, EP110, EP120, EP210, EP220, ES110, ES120, ES210, ES220]
 
@@ -142,9 +147,11 @@ def model(delta_t, hold_every, res_rates, res_weights, sim_duration, weights, ba
             max_E[0] = E01
 
         # if the system explodes, stop the simulation
-        if E01 > 100:
+        if E01 > 1000:
             break
 
+
+        ### Calculating the firing rates at this timestep
         I1 = g_E - EP110 * P01 - EP120 * P02 - ES110 * S01 - ES120 * S02 + EE110 * E01 + EE120 * E02 + stimulus_E1
         I2 = g_E - EP210 * P01 - EP220 * P02 - ES210 * S01 - ES220 * S02 + EE210 * E01 + EE220 * E02 + stimulus_E2
 
@@ -159,42 +166,41 @@ def model(delta_t, hold_every, res_rates, res_weights, sim_duration, weights, ba
         S1 = S01 + delta_t*(1/tau_S)*(-S01 + np.maximum(0, w_SEii * E01 + w_SEij * E02 + g_S - rheobase_S + stimulus_S1))
         S2 = S02 + delta_t*(1/tau_S)*(-S02 + np.maximum(0, w_SEij * E01 + w_SEii * E02 + g_S - rheobase_S + stimulus_S2))
 
+        # Firing rates, set-points and set-point regulators cannot go below 0
+        E1 = max(E1, 0); E2 = max(E2, 0)
+        P1 = max(P1, 0); P2 = max(P2, 0)
+        S1 = max(S1, 0); S2 = max(S2, 0)
+        beta1=max(beta1,0); beta2=max(beta2, 0)
+        theta1=max(theta1,1e-10); theta2=max(theta2, 1e-10) # Nonzero lower boundary to prevent zero division in scaling equation
 
-        beta1 = beta1 + adaptive_threshold_mask*delta_t * (1 / tau_beta) * (E1 - beta1)
-        beta2 = beta2 + adaptive_threshold_mask*delta_t * (1 / tau_beta) * (E2 - beta2)
 
-        theta1 = theta1 + adaptive_threshold_mask*delta_t * (1 / tau_theta) * \
+        ### Calculating the plasticity for this timestep
+        # Set point regulators for the E populations
+        beta1 = beta1 + adaptive_set_point_flag*delta_t * (1 / tau_beta) * (E1 - beta1)
+        beta2 = beta2 + adaptive_set_point_flag*delta_t * (1 / tau_beta) * (E2 - beta2)
+
+        # Set points for the E populations
+        theta1 = theta1 + adaptive_set_point_flag*delta_t * (1 / tau_theta) * \
                    (-flag_theta_shift*(theta1 - beta1) + flag_theta_local*(E1 - theta1))
-        theta2 = theta2 + adaptive_threshold_mask*delta_t * (1 / tau_theta) * \
+        theta2 = theta2 + adaptive_set_point_flag*delta_t * (1 / tau_theta) * \
                    (-flag_theta_shift*(theta2 - beta2) + flag_theta_local*(E2 - theta2))
 
-        # rates and plasticity thresholds cannot go below 0 (boundary set to 1e-10 in order to avoid very small numbers
-        # leading rE/theta to a very large value)
-        beta1=max(beta1,1e-10); beta2=max(beta2, 1e-10)
-        theta1=max(theta1,1e-10); theta2=max(theta2, 1e-10)
-        E1 = max(E1, 1e-10); E2 = max(E2, 1e-10)
-        P1 = max(P1, 1e-10); P2 = max(P2, 1e-10)
-        S1 = max(S1, 1e-10); S2 = max(S2, 1e-10)
 
-        if heb_plas_mask:
-            heb_term_EE11 = learning_rate * delta_t * (1 / tau_plas) * ((E1 - initial_theta_mean) * E1)
-            heb_term_EE12 = learning_rate * delta_t * (1 / tau_plas) * ((E1 - initial_theta_mean) * E2)
-            heb_term_EE21 = learning_rate * delta_t * (1 / tau_plas) * ((E2 - initial_theta_mean) * E1)
-            heb_term_EE22 = learning_rate * delta_t * (1 / tau_plas) * ((E2 - initial_theta_mean) * E2)
 
-        # preventing ratios getting very large when thetas approach to zero
-        #ratio_E1 = max(E1, 1e-2) / max(theta1,1e-2); ratio_E2 = max(E2, 1e-2) / max(theta2,1e-2)
+
+
+        # Ratios in the synaptic scaling equations are calculated
         ratio_E1 = E1 / theta1; ratio_E2 = E2 / theta2
-        p_e = 1; p_p = 1; p_s = 1
 
-        ss1_e = exc_scal_mask * delta_t * (1 / tau_scaling_E) * ((1 - ratio_E1)**p_e)
-        ss2_e = exc_scal_mask * delta_t * (1 / tau_scaling_E) * ((1 - ratio_E2)**p_e)
+        # Synaptic scaling terms are calculated and applied
+        ss1_e = E_scaling_flag * delta_t * (1 / tau_scaling_E) * ((1 - ratio_E1))
+        ss2_e = E_scaling_flag * delta_t * (1 / tau_scaling_E) * ((1 - ratio_E2))
 
-        ss1_p = inh_scal_mask_p*delta_t * (1 / tau_scaling_P) * ((1 - ratio_E1)**p_p)
-        ss2_p = inh_scal_mask_p*delta_t * (1 / tau_scaling_P) * ((1 - ratio_E2)**p_p)
+        ss1_p = P_scaling_flag*delta_t * (1 / tau_scaling_P) * ((1 - ratio_E1))
+        ss2_p = P_scaling_flag*delta_t * (1 / tau_scaling_P) * ((1 - ratio_E2))
 
-        ss1_s = inh_scal_mask_s*delta_t * (1 / tau_scaling_S) * ((1 - ratio_E1)**p_s)
-        ss2_s = inh_scal_mask_s*delta_t * (1 / tau_scaling_S) * ((1 - ratio_E2)**p_s)
+        ss1_s = S_scaling_flag*delta_t * (1 / tau_scaling_S) * ((1 - ratio_E1))
+        ss2_s = S_scaling_flag*delta_t * (1 / tau_scaling_S) * ((1 - ratio_E2))
 
         EE110 = EE110 + ss1_e*EE110
         EE120 = EE120 + ss1_e*EE120
@@ -209,13 +215,18 @@ def model(delta_t, hold_every, res_rates, res_weights, sim_duration, weights, ba
         ES21  = ES210 + ss2_s*ES210
         ES22  = ES220 + ss2_s*ES220
 
-        # in order to have hebbian plasticity in the absence of synaptic scaling, it is defined here
-        EE11 = EE110 + heb_term_EE11
-        EE12 = EE120 + heb_term_EE12
-        EE21 = EE210 + heb_term_EE21
-        EE22 = EE220 + heb_term_EE22
+        # Hebbian terms are calculated and applied
+        heb_term11 = hebbian_flag * learning_rate * delta_t * (1 / tau_plas) * (E1 - r_baseline) * E1
+        heb_term12 = hebbian_flag * learning_rate * delta_t * (1 / tau_plas) * (E1 - r_baseline) * E2
+        heb_term21 = hebbian_flag * learning_rate * delta_t * (1 / tau_plas) * (E2 - r_baseline) * E1
+        heb_term22 = hebbian_flag * learning_rate * delta_t * (1 / tau_plas) * (E2 - r_baseline) * E2
 
-        # lower bond is applied to the weights
+        EE11 = EE110 + heb_term11
+        EE12 = EE120 + heb_term12
+        EE21 = EE210 + heb_term21
+        EE22 = EE220 + heb_term22
+
+        # Lower bondary is applied to the weights
         EE11 = max(0,EE11);EE12 = max(0,EE12)
         EE21 = max(0,EE21);EE22 = max(0,EE22)
         EP11 = max(0,EP11);EP12 = max(0,EP12)
@@ -223,7 +234,7 @@ def model(delta_t, hold_every, res_rates, res_weights, sim_duration, weights, ba
         ES11 = max(0,ES11);ES12 = max(0,ES12)
         ES21 = max(0,ES21);ES22 = max(0,ES22)
 
-        # placeholder parameters are freed
+        # Placeholder parameters are freed
         E01 = E1; E02 = E2; P01 = P1; P02 = P2; S01 = S1; S02 = S2
         EE110=EE11; EE120=EE12; EE210=EE21; EE220=EE22
         EP110=EP11; EP120=EP12; EP210=EP21; EP220=EP22
@@ -235,25 +246,25 @@ def model(delta_t, hold_every, res_rates, res_weights, sim_duration, weights, ba
 
 
 @jit(nopython=True)
-def model_VIP(delta_t, hold_every, res_rates, res_weights, sim_duration, weights,back_inputs,
-          stim_trains, stim_times, taus, alpha, beta_K, rheobases,
+def model_VIP(delta_t, sampling_rate, l_res_rates, l_res_weights, sim_duration, weights, g,
+          g_stim, stim_times, taus, alpha, beta_K, rheobases,
           flags=(0, 0, 0, 0, 0, 0), flags_theta = (1,1)):
 
-    (hold_every_stimuli, hold_every_simulation) = hold_every
-    (r_phase1, r_phase2, r_phase3, max_E) = res_rates
-    (J_phase1, J_phase2) = res_weights
+    (sampling_rate_stim, sampling_rate_sim) = sampling_rate
+    (r_phase1, r_phase2, r_phase3, max_E) = l_res_rates
+    (J_phase1, J_phase2) = l_res_weights
     theta1,theta2 = 1,1
     learning_rate = 1
 
     (w_EEii, w_EPii, w_ESii, w_PEii, w_PPii, w_PSii, w_SEii, w_SVii, w_VEii, w_VPii, w_VSii,
      w_EEij, w_EPij, w_ESij, w_PEij, w_PPij, w_PSij, w_SEij, w_SVij, w_VEij, w_VPij, w_VSij) = weights
-    (g_E, g_P, g_S, x_V) = back_inputs
-    (stim_train_E,stim_train_P, stim_train_S) = stim_trains
+    (g_E, g_P, g_S, x_V) = g
+    (g_stim_E, g_stim_P, g_stim_S) = g_stim
     (stim_start, stim_stop) = stim_times[0]
     (tau_E, tau_P, tau_S, tau_plas,
      tau_scaling_E, tau_scaling_P, tau_scaling_S,
      tau_theta, tau_beta) = taus
-    (rheobase_E,rheobase_P,rheobase_S) = rheobases
+    (rheobase_E, rheobase_P, rheobase_S) = rheobases
 
     (hebbian_flag, three_factor_flag, adaptive_set_point_flag,
      E_scaling_flag, P_scaling_flag, S_scaling_flag) = flags
@@ -272,12 +283,12 @@ def model_VIP(delta_t, hold_every, res_rates, res_weights, sim_duration, weights
     adaptive_set_point_mask = 0; three_factor_flag = 0
 
     heb_term_EE11, heb_term_EE12, heb_term_EE21, heb_term_EE22 = 0, 0, 0, 0
-    initial_theta_mean = 0
+    r_baseline = 0
     beta1 = 1
     beta2 = 1
 
     # info-holder counter (counter) and index (idx) to fill the arrays. np.mod doesn't
-    # work in numba, thus we need counter to hold data at every "hold_every" step
+    # work in numba, thus we need counter to hold data at every "sampling_rate" step
     phase1 = 0
     phase3 = 0
     counter1, counter2 , counter3 = 0, 0, 0
@@ -288,7 +299,7 @@ def model_VIP(delta_t, hold_every, res_rates, res_weights, sim_duration, weights
         if step == int((stim_start + 2) * (1 / delta_t)): # if stim on
             if stim_applied == 0: # if first stim
                 (theta1, theta2) = (E1,E2)
-                initial_theta_mean = (theta1 + theta2) / 2
+                r_baseline = (theta1 + theta2) / 2
 
                 hebbian_mask = hebbian_flag
                 E_scaling_mask = E_scaling_flag
@@ -301,20 +312,20 @@ def model_VIP(delta_t, hold_every, res_rates, res_weights, sim_duration, weights
                     learning_rate = 1
 
             if stim_applied == 1:
-                counter2 = hold_every_simulation + 5  # stop the data-holder counter
+                counter2 = sampling_rate_sim + 5  # stop the data-holder counter
 
-            stimulus_E1, stimulus_E2 = stim_train_E[stim_applied]
-            stimulus_P1, stimulus_P2 = stim_train_P[stim_applied]
-            stimulus_S1, stimulus_S2 = stim_train_S[stim_applied]
+            stimulus_E1, stimulus_E2 = g_stim_E[stim_applied]
+            stimulus_P1, stimulus_P2 = g_stim_P[stim_applied]
+            stimulus_S1, stimulus_S2 = g_stim_S[stim_applied]
 
             # if there is more than 1 stimulation, it increases the index number in the stim_times list
             stim_applied = stim_applied + 1 # increase the no stim applied
 
         if step == int((stim_stop + 2)*(1/delta_t)): # if stim off
             if stim_applied == 1:
-                counter2 = hold_every_simulation  # start the data-holder counter
-                beta1 = initial_theta_mean - beta_K
-                beta2 = initial_theta_mean - beta_K
+                counter2 = sampling_rate_sim  # start the data-holder counter
+                beta1 = r_baseline - beta_K
+                beta2 = r_baseline - beta_K
 
             # hebbian is turned off for the testing
             if three_factor_flag:
@@ -329,33 +340,33 @@ def model_VIP(delta_t, hold_every, res_rates, res_weights, sim_duration, weights
 
         # setting the counters for phase 1 and 3
         if step == int(2*(1/delta_t)):
-            counter1 = hold_every_stimuli  # start the data-holder counter1
+            counter1 = sampling_rate_stim  # start the data-holder counter1
             phase1 = 1
         elif step == int((stim_times[0][1] + 5 + 2) * (1 / delta_t)):
             phase1 = 0
 
         elif step == int((stim_times[1][0] - 5 + 2) * (1 / delta_t)):
-            counter3 = hold_every_stimuli  # start the data-holder counter3
+            counter3 = sampling_rate_stim  # start the data-holder counter3
             phase3 = 1
         elif step == int((stim_times[1][1] + 5 + 2) * (1 / delta_t)):
             phase3 = 0
 
 
         # values are assigned to the lists
-        if phase1 and counter1 == hold_every_stimuli:
+        if phase1 and counter1 == sampling_rate_stim:
             r_phase1[:,i_1] = [E01, E02, P01, P02, S01, S02, V01, V02]
             J_phase1[:,i_1] = [EE110, EE120, EE210, EE220, EP110, EP120, EP210, EP220, ES110, ES120, ES210, ES220]
 
             i_1 = i_1 + 1
             counter1 = 0  # restart
 
-        elif phase3 and counter3 == hold_every_stimuli:
+        elif phase3 and counter3 == sampling_rate_stim:
             r_phase3[:,i_3] = [E01, E02, P01, P02, S01, S02, V01, V02]
 
             i_3 = i_3 + 1
             counter3 = 0  # restart
 
-        if stim_applied == 1 and counter2 == hold_every_simulation:
+        if stim_applied == 1 and counter2 == sampling_rate_sim:
             r_phase2[:,i_2] = [E01, E02, P01, P02, S01, S02, V01, V02]
             J_phase2[:,i_2] = [EE110, EE120, EE210, EE220, EP110, EP120, EP210, EP220, ES110, ES120, ES210, ES220]
 
@@ -404,10 +415,10 @@ def model_VIP(delta_t, hold_every, res_rates, res_weights, sim_duration, weights
         V1 = max(V1, 1e-10); V2 = max(V2, 1e-10)
 
         if hebbian_mask:
-            heb_term_EE11 = learning_rate * delta_t * (1 / tau_plas) * ((E1 - initial_theta_mean) * E1)
-            heb_term_EE12 = learning_rate * delta_t * (1 / tau_plas) * ((E1 - initial_theta_mean) * E2)
-            heb_term_EE21 = learning_rate * delta_t * (1 / tau_plas) * ((E2 - initial_theta_mean) * E1)
-            heb_term_EE22 = learning_rate * delta_t * (1 / tau_plas) * ((E2 - initial_theta_mean) * E2)
+            heb_term_EE11 = learning_rate * delta_t * (1 / tau_plas) * ((E1 - r_baseline) * E1)
+            heb_term_EE12 = learning_rate * delta_t * (1 / tau_plas) * ((E1 - r_baseline) * E2)
+            heb_term_EE21 = learning_rate * delta_t * (1 / tau_plas) * ((E2 - r_baseline) * E1)
+            heb_term_EE22 = learning_rate * delta_t * (1 / tau_plas) * ((E2 - r_baseline) * E2)
 
         # preventing ratios getting very large when thetas approach to zero
         ratio_E1 = max(E1, 1e-2) / max(theta1,1e-2); ratio_E2 = max(E2, 1e-2) / max(theta2,1e-2)
@@ -463,25 +474,25 @@ def model_VIP(delta_t, hold_every, res_rates, res_weights, sim_duration, weights
 
 
 @jit(nopython=True)
-def model_2_compartmental(delta_t, hold_every, res_rates, res_weights, sim_duration, weights, back_inputs,
-          stim_trains, stim_times, taus, beta_K, rheobases,
+def model_2_compartmental(delta_t, sampling_rate, l_res_rates, l_res_weights, sim_duration, weights, g,
+          g_stim, stim_times, taus, beta_K, rheobases,
           flags=(0, 0, 0, 0, 0, 0), flags_theta = (1,1)):
 
-    (hold_every_stimuli, hold_every_simulation) = hold_every
-    (r_phase1, r_phase2, r_phase3, max_E) = res_rates
-    (J_EE_phase1, J_phase2) = res_weights
+    (sampling_rate_stim, sampling_rate_sim) = sampling_rate
+    (r_phase1, r_phase2, r_phase3, max_E) = l_res_rates
+    (J_exc_phase1, J_phase2) = l_res_weights
     theta1, theta2 = 1,1
     learning_rate = 1
 
     (w_DEii, w_EPii, w_DSii, w_PEii, w_PPii, w_PSii, w_SEii,
      w_DEij, w_EPij, w_DSij, w_PEij, w_PPij, w_PSij, w_SEij) = weights
-    (g_D, g_E, g_P, g_S, g_top_down_to_S) = back_inputs
-    (stim_train_E,stim_train_P, stim_train_S) = stim_trains
+    (g_D, g_E, g_P, g_S, g_top_down_to_S) = g
+    (g_stim_E, g_stim_P, g_stim_S) = g_stim
     (stim_start, stim_stop) = stim_times[0]
     (tau_E, tau_P, tau_S, tau_plas,
      tau_scaling_E, tau_scaling_P, tau_scaling_S,
      tau_theta, tau_beta) = taus
-    (rheobase_E,rheobase_P,rheobase_S) = rheobases
+    (rheobase_E, rheobase_P, rheobase_S) = rheobases
 
     (hebbian_flag, three_factor_flag, adaptive_set_point_flag,
      E_scaling_flag, P_scaling_flag, S_scaling_flag) = flags
@@ -500,12 +511,12 @@ def model_2_compartmental(delta_t, hold_every, res_rates, res_weights, sim_durat
     adaptive_set_point_mask = 0; three_factor_flag = 0
 
     heb_term_EE11, heb_term_EE12, heb_term_EE21, heb_term_EE22 = 0, 0, 0, 0
-    initial_theta_mean = 0
+    r_baseline = 0
     beta1 = 1
     beta2 = 1
 
     # info-holder counter (counter) and index (idx) to fill the arrays. np.mod doesn't
-    # work in numba, thus we need counter to hold data at every "hold_every" step
+    # work in numba, thus we need counter to hold data at every "sampling_rate" step
     phase1 = 0
     phase3 = 0
     counter1, counter2 , counter3 = 0, 0, 0
@@ -516,9 +527,9 @@ def model_2_compartmental(delta_t, hold_every, res_rates, res_weights, sim_durat
         if step == int((stim_start + 2) * (1 / delta_t)): # if stim on
             if stim_applied == 0: # if first stim
                 (theta1, theta2) = (E1,E2)
-                initial_theta_mean = (theta1 + theta2) / 2
-                beta1 = initial_theta_mean - beta_K
-                beta2 = initial_theta_mean - beta_K
+                r_baseline = (theta1 + theta2) / 2
+                beta1 = r_baseline - beta_K
+                beta2 = r_baseline - beta_K
 
                 hebbian_mask = hebbian_flag
                 E_scaling_mask = E_scaling_flag
@@ -531,11 +542,11 @@ def model_2_compartmental(delta_t, hold_every, res_rates, res_weights, sim_durat
                     learning_rate = 1
 
             if stim_applied == 1:
-                counter2 = hold_every_simulation + 5  # stop the data-holder counter
+                counter2 = sampling_rate_sim + 5  # stop the data-holder counter
 
-            stimulus_E1, stimulus_E2 = stim_train_E[stim_applied]
-            stimulus_P1, stimulus_P2 = stim_train_P[stim_applied]
-            stimulus_S1, stimulus_S2 = stim_train_S[stim_applied]
+            stimulus_E1, stimulus_E2 = g_stim_E[stim_applied]
+            stimulus_P1, stimulus_P2 = g_stim_P[stim_applied]
+            stimulus_S1, stimulus_S2 = g_stim_S[stim_applied]
 
             # if there is more than 1 stimulation, it increases the index number in the stim_times list
             stim_applied = stim_applied + 1 # increase the no stim applied
@@ -544,7 +555,7 @@ def model_2_compartmental(delta_t, hold_every, res_rates, res_weights, sim_durat
             g_S = 3 + g_top_down_to_S
 
             if stim_applied == 1:
-                counter2 = hold_every_simulation  # start the data-holder counter
+                counter2 = sampling_rate_sim  # start the data-holder counter
 
             # hebbian is turned off for the testing
             if three_factor_flag:
@@ -559,33 +570,33 @@ def model_2_compartmental(delta_t, hold_every, res_rates, res_weights, sim_durat
 
         # setting the counters for phase 1 and 3 with 5 seconds of margin before and after stimulation
         if step == int(2*(1/delta_t)):
-            counter1 = hold_every_stimuli  # start the data-holder counter1
+            counter1 = sampling_rate_stim  # start the data-holder counter1
             phase1 = 1
         elif step == int((stim_times[0][1] + 5 + 2) * (1 / delta_t)):
             phase1 = 0
 
         elif step == int((stim_times[1][0] - 5 + 2) * (1 / delta_t)):
-            counter3 = hold_every_stimuli  # start the data-holder counter3
+            counter3 = sampling_rate_stim  # start the data-holder counter3
             phase3 = 1
         elif step == int((stim_times[1][1] + 5 + 2) * (1 / delta_t)):
             phase3 = 0
 
 
         # values are assigned to the lists
-        if phase1 and counter1 == hold_every_stimuli:
+        if phase1 and counter1 == sampling_rate_stim:
             r_phase1[:,i_1] = [E01, E02, P01, P02, S01, S02]
-            J_EE_phase1[:,i_1] = [DE110, DE120, DE210, DE220]
+            J_exc_phase1[:,i_1] = [DE110, DE120, DE210, DE220]
 
             i_1 = i_1 + 1
             counter1 = 0  # restart
 
-        elif phase3 and counter3 == hold_every_stimuli:
+        elif phase3 and counter3 == sampling_rate_stim:
             r_phase3[:,i_3] = [E01, E02, P01, P02, S01, S02]
 
             i_3 = i_3 + 1
             counter3 = 0  # restart
 
-        if stim_applied == 1 and counter2 == hold_every_simulation:
+        if stim_applied == 1 and counter2 == sampling_rate_sim:
             r_phase2[:,i_2] = [E01, E02, P01, P02, S01, S02, theta1, theta2, beta1, beta2]
             J_phase2[:,i_2] = [DE110, DE120, DE210, DE220, EP110, EP120, EP210, EP220, DS110, DS120, DS210, DS220]
 
@@ -634,10 +645,10 @@ def model_2_compartmental(delta_t, hold_every, res_rates, res_weights, sim_durat
         S1 = max(S1, 1e-10); S2 = max(S2, 1e-10)
 
         if hebbian_mask:
-            heb_term_DE11 = learning_rate * delta_t * (1 / tau_plas) * ((E1 - initial_theta_mean) * E1)
-            heb_term_DE12 = learning_rate * delta_t * (1 / tau_plas) * ((E1 - initial_theta_mean) * E2)
-            heb_term_DE21 = learning_rate * delta_t * (1 / tau_plas) * ((E2 - initial_theta_mean) * E1)
-            heb_term_DE22 = learning_rate * delta_t * (1 / tau_plas) * ((E2 - initial_theta_mean) * E2)
+            heb_term_DE11 = learning_rate * delta_t * (1 / tau_plas) * ((E1 - r_baseline) * E1)
+            heb_term_DE12 = learning_rate * delta_t * (1 / tau_plas) * ((E1 - r_baseline) * E2)
+            heb_term_DE21 = learning_rate * delta_t * (1 / tau_plas) * ((E2 - r_baseline) * E1)
+            heb_term_DE22 = learning_rate * delta_t * (1 / tau_plas) * ((E2 - r_baseline) * E2)
 
         # preventing ratios getting very large when thetas approach to zero
         ratio_E1 = max(E1, 1e-2) / max(theta1,1e-2); ratio_E2 = max(E2, 1e-2) / max(theta2,1e-2)
@@ -694,24 +705,24 @@ def model_2_compartmental(delta_t, hold_every, res_rates, res_weights, sim_durat
 
 
 @jit(nopython=True)
-def model_2_compartmental_local_activity_scaling(delta_t, hold_every, res_rates, res_weights, sim_duration, weights, back_inputs,
-          stim_trains, stim_times, taus, beta_K, rheobases,
+def model_2_compartmental_local_activity_scaling(delta_t, sampling_rate, l_res_rates, l_res_weights, sim_duration, weights, g,
+          g_stim, stim_times, taus, beta_K, rheobases,
           flags=(0, 0, 0, 0, 0, 0), flags_theta = (1,1)):
 
-    (hold_every_stimuli, hold_every_simulation) = hold_every
-    (r_phase1, r_phase2, r_phase3, max_E) = res_rates
-    (J_EE_phase1, J_phase2) = res_weights
+    (sampling_rate_stim, sampling_rate_sim) = sampling_rate
+    (r_phase1, r_phase2, r_phase3, max_E) = l_res_rates
+    (J_exc_phase1, J_phase2) = l_res_weights
     learning_rate = 1
 
     (w_DEii, w_EPii, w_DSii, w_PEii, w_PPii, w_PSii, w_SEii,
      w_DEij, w_EPij, w_DSij, w_PEij, w_PPij, w_PSij, w_SEij) = weights
-    (g_D, g_E, g_P, g_S, g_top_down_to_S) = back_inputs
-    (stim_train_E,stim_train_P, stim_train_S) = stim_trains
+    (g_D, g_E, g_P, g_S, g_top_down_to_S) = g
+    (g_stim_E, g_stim_P, g_stim_S) = g_stim
     (stim_start, stim_stop) = stim_times[0]
     (tau_E, tau_P, tau_S, tau_plas,
      tau_scaling_E, tau_scaling_P, tau_scaling_S,
      tau_theta, tau_beta) = taus
-    (rheobase_E,rheobase_P,rheobase_S) = rheobases
+    (rheobase_E, rheobase_P, rheobase_S) = rheobases
 
     (hebbian_flag, three_factor_flag, adaptive_set_point_flag,
      E_scaling_flag, P_scaling_flag, S_scaling_flag) = flags
@@ -736,7 +747,7 @@ def model_2_compartmental_local_activity_scaling(delta_t, hold_every, res_rates,
     heb_term_DE11, heb_term_DE12, heb_term_DE21, heb_term_DE22 = 0, 0, 0, 0
 
     # info-holder counter (counter) and index (idx) to fill the arrays. np.mod doesn't
-    # work in numba, thus we need counter to hold data at every "hold_every" step
+    # work in numba, thus we need counter to hold data at every "sampling_rate" step
     phase1 = 0
     phase3 = 0
     counter1, counter2 , counter3 = 0, 0, 0
@@ -761,11 +772,11 @@ def model_2_compartmental_local_activity_scaling(delta_t, hold_every, res_rates,
                     learning_rate = 1
 
             if stim_applied == 1:
-                counter2 = hold_every_simulation + 5  # stop the data-holder counter
+                counter2 = sampling_rate_sim + 5  # stop the data-holder counter
 
-            stimulus_E1, stimulus_E2 = stim_train_E[stim_applied]
-            stimulus_P1, stimulus_P2 = stim_train_P[stim_applied]
-            stimulus_S1, stimulus_S2 = stim_train_S[stim_applied]
+            stimulus_E1, stimulus_E2 = g_stim_E[stim_applied]
+            stimulus_P1, stimulus_P2 = g_stim_P[stim_applied]
+            stimulus_S1, stimulus_S2 = g_stim_S[stim_applied]
 
             # if there is more than 1 stimulation, it increases the index number in the stim_times list
             stim_applied = stim_applied + 1 # increase the no stim applied
@@ -774,7 +785,7 @@ def model_2_compartmental_local_activity_scaling(delta_t, hold_every, res_rates,
             g_S = 3 + g_top_down_to_S
 
             if stim_applied == 1:
-                counter2 = hold_every_simulation  # start the data-holder counter
+                counter2 = sampling_rate_sim  # start the data-holder counter
 
             # hebbian is turned off for the testing
             if adaptive_LR_mask:
@@ -789,33 +800,33 @@ def model_2_compartmental_local_activity_scaling(delta_t, hold_every, res_rates,
 
         # setting the counters for phase 1 and 3 with 5 seconds of margin before and after stimulation
         if step == int(2*(1/delta_t)):
-            counter1 = hold_every_stimuli  # start the data-holder counter1
+            counter1 = sampling_rate_stim  # start the data-holder counter1
             phase1 = 1
         elif step == int((stim_times[0][1] + 5 + 2) * (1 / delta_t)):
             phase1 = 0
 
         elif step == int((stim_times[1][0] - 5 + 2) * (1 / delta_t)):
-            counter3 = hold_every_stimuli  # start the data-holder counter3
+            counter3 = sampling_rate_stim  # start the data-holder counter3
             phase3 = 1
         elif step == int((stim_times[1][1] + 5 + 2) * (1 / delta_t)):
             phase3 = 0
 
 
         # values are assigned to the lists
-        if phase1 and counter1 == hold_every_stimuli:
+        if phase1 and counter1 == sampling_rate_stim:
             r_phase1[:,i_1] = [E01, E02, P01, P02, S01, S02, I_D1, I_D2, I_E1, I_E2]
-            J_EE_phase1[:,i_1] = [DE110, DE120, DE210, DE220]
+            J_exc_phase1[:,i_1] = [DE110, DE120, DE210, DE220]
 
             i_1 = i_1 + 1
             counter1 = 0  # restart
 
-        elif phase3 and counter3 == hold_every_stimuli:
+        elif phase3 and counter3 == sampling_rate_stim:
             r_phase3[:,i_3] = [E01, E02, P01, P02, S01, S02]
 
             i_3 = i_3 + 1
             counter3 = 0  # restart
 
-        if stim_applied == 1 and counter2 == hold_every_simulation:
+        if stim_applied == 1 and counter2 == sampling_rate_sim:
             r_phase2[:,i_2] = [E01, E02, P01, P02, S01, S02, thetaD1, thetaD2, thetaE1, thetaE2,
                                betaD1, betaD2, betaE1, betaE2, I_D1, I_D2, I_E1, I_E2]
             J_phase2[:,i_2] = [DE110, DE120, DE210, DE220, EP110, EP120, EP210, EP220, DS110, DS120, DS210, DS220]
@@ -930,24 +941,24 @@ def model_2_compartmental_local_activity_scaling(delta_t, hold_every, res_rates,
 
 
 @jit(nopython=True)
-def model_2_compartmental_loc_inputs_divided(delta_t, hold_every, res_rates, res_weights, sim_duration, weights, back_inputs,
-          stim_trains, stim_times, taus, beta_K, rheobases,
+def model_2_compartmental_loc_inputs_divided(delta_t, sampling_rate, l_res_rates, l_res_weights, sim_duration, weights, g,
+          g_stim, stim_times, taus, beta_K, rheobases,
           flags=(0, 0, 0, 0, 0, 0), flags_theta = (1,1)):
 
-    (hold_every_stimuli, hold_every_simulation) = hold_every
-    (r_phase1, r_phase2, r_phase3, max_E) = res_rates
-    (J_EE_phase1, J_phase2) = res_weights
+    (sampling_rate_stim, sampling_rate_sim) = sampling_rate
+    (r_phase1, r_phase2, r_phase3, max_E) = l_res_rates
+    (J_exc_phase1, J_phase2) = l_res_weights
     learning_rate = 1
 
     (w_DEii, w_EPii, w_DSii, w_PEii, w_PPii, w_PSii, w_SEii,
      w_DEij, w_EPij, w_DSij, w_PEij, w_PPij, w_PSij, w_SEij) = weights
-    (g_D, g_E, g_P, g_S, g_top_down_to_S) = back_inputs
-    (stim_train_E,stim_train_P, stim_train_S) = stim_trains
+    (g_D, g_E, g_P, g_S, g_top_down_to_S) = g
+    (g_stim_E, g_stim_P, g_stim_S) = g_stim
     (stim_start, stim_stop) = stim_times[0]
     (tau_E, tau_P, tau_S, tau_plas,
      tau_scaling_E, tau_scaling_P, tau_scaling_S,
      tau_theta, tau_beta) = taus
-    (rheobase_E,rheobase_P,rheobase_S) = rheobases
+    (rheobase_E, rheobase_P, rheobase_S) = rheobases
 
     (hebbian_flag, three_factor_flag, adaptive_set_point_flag,
      E_scaling_flag, P_scaling_flag, S_scaling_flag) = flags
@@ -972,7 +983,7 @@ def model_2_compartmental_loc_inputs_divided(delta_t, hold_every, res_rates, res
     heb_term_DE11, heb_term_DE12, heb_term_DE21, heb_term_DE22 = 0, 0, 0, 0
 
     # info-holder counter (counter) and index (idx) to fill the arrays. np.mod doesn't
-    # work in numba, thus we need counter to hold data at every "hold_every" step
+    # work in numba, thus we need counter to hold data at every "sampling_rate" step
     phase1 = 0
     phase3 = 0
     counter1, counter2 , counter3 = 0, 0, 0
@@ -997,11 +1008,11 @@ def model_2_compartmental_loc_inputs_divided(delta_t, hold_every, res_rates, res
                     learning_rate = 1
 
             if stim_applied == 1:
-                counter2 = hold_every_simulation + 5  # stop the data-holder counter
+                counter2 = sampling_rate_sim + 5  # stop the data-holder counter
 
-            stimulus_E1, stimulus_E2 = stim_train_E[stim_applied]
-            stimulus_P1, stimulus_P2 = stim_train_P[stim_applied]
-            stimulus_S1, stimulus_S2 = stim_train_S[stim_applied]
+            stimulus_E1, stimulus_E2 = g_stim_E[stim_applied]
+            stimulus_P1, stimulus_P2 = g_stim_P[stim_applied]
+            stimulus_S1, stimulus_S2 = g_stim_S[stim_applied]
 
             # if there is more than 1 stimulation, it increases the index number in the stim_times list
             stim_applied = stim_applied + 1 # increase the no stim applied
@@ -1010,7 +1021,7 @@ def model_2_compartmental_loc_inputs_divided(delta_t, hold_every, res_rates, res
             g_S = 3 + g_top_down_to_S
 
             if stim_applied == 1:
-                counter2 = hold_every_simulation  # start the data-holder counter
+                counter2 = sampling_rate_sim  # start the data-holder counter
 
             # hebbian is turned off for the testing
             if adaptive_LR_mask:
@@ -1025,33 +1036,33 @@ def model_2_compartmental_loc_inputs_divided(delta_t, hold_every, res_rates, res
 
         # setting the counters for phase 1 and 3 with 5 seconds of margin before and after stimulation
         if step == int(2*(1/delta_t)):
-            counter1 = hold_every_stimuli  # start the data-holder counter1
+            counter1 = sampling_rate_stim  # start the data-holder counter1
             phase1 = 1
         elif step == int((stim_times[0][1] + 5 + 2) * (1 / delta_t)):
             phase1 = 0
 
         elif step == int((stim_times[1][0] - 5 + 2) * (1 / delta_t)):
-            counter3 = hold_every_stimuli  # start the data-holder counter3
+            counter3 = sampling_rate_stim  # start the data-holder counter3
             phase3 = 1
         elif step == int((stim_times[1][1] + 5 + 2) * (1 / delta_t)):
             phase3 = 0
 
 
         # values are assigned to the lists
-        if phase1 and counter1 == hold_every_stimuli:
+        if phase1 and counter1 == sampling_rate_stim:
             r_phase1[:,i_1] = [E01, E02, P01, P02, S01, S02, I_D1, I_D2, I_E1, I_E2]
-            J_EE_phase1[:,i_1] = [DE110, DE120, DE210, DE220]
+            J_exc_phase1[:,i_1] = [DE110, DE120, DE210, DE220]
 
             i_1 = i_1 + 1
             counter1 = 0  # restart
 
-        elif phase3 and counter3 == hold_every_stimuli:
+        elif phase3 and counter3 == sampling_rate_stim:
             r_phase3[:,i_3] = [E01, E02, P01, P02, S01, S02]
 
             i_3 = i_3 + 1
             counter3 = 0  # restart
 
-        if stim_applied == 1 and counter2 == hold_every_simulation:
+        if stim_applied == 1 and counter2 == sampling_rate_sim:
             r_phase2[:,i_2] = [E01, E02, P01, P02, S01, S02, thetaD1, thetaD2, thetaE1, thetaE2,
                                betaD1, betaD2, betaE1, betaE2, I_D1, I_D2, I_E1, I_E2]
             J_phase2[:,i_2] = [DE110, DE120, DE210, DE220, EP110, EP120, EP210, EP220, DS110, DS120, DS210, DS220]
@@ -1172,24 +1183,24 @@ def model_2_compartmental_loc_inputs_divided(delta_t, hold_every, res_rates, res
 
 
 @jit(nopython=True)
-def model_2_compartmental_loc_all_to_all(delta_t, hold_every, res_rates, res_weights, sim_duration, weights, back_inputs,
-          stim_trains, stim_times, taus, beta_K, rheobases,
+def model_2_compartmental_loc_all_to_all(delta_t, sampling_rate, l_res_rates, l_res_weights, sim_duration, weights, g,
+          g_stim, stim_times, taus, beta_K, rheobases,
           flags=(0, 0, 0, 0, 0, 0), flags_theta = (1,1)):
 
-    (hold_every_stimuli, hold_every_simulation) = hold_every
-    (r_phase1, r_phase2, r_phase3, max_E) = res_rates
-    (J_EE_phase1, J_phase2) = res_weights
+    (sampling_rate_stim, sampling_rate_sim) = sampling_rate
+    (r_phase1, r_phase2, r_phase3, max_E) = l_res_rates
+    (J_exc_phase1, J_phase2) = l_res_weights
     learning_rate = 1
 
     (w_DEii, w_EEii, w_EPii, w_DSii, w_PEii, w_PPii, w_PSii, w_SEii,
      w_DEij, w_EEij, w_EPij, w_DSij, w_PEij, w_PPij, w_PSij, w_SEij) = weights
-    (g_D, g_E, g_P, g_S, g_top_down_to_S) = back_inputs
-    (stim_train_E,stim_train_P, stim_train_S) = stim_trains
+    (g_D, g_E, g_P, g_S, g_top_down_to_S) = g
+    (g_stim_E, g_stim_P, g_stim_S) = g_stim
     (stim_start, stim_stop) = stim_times[0]
     (tau_E, tau_P, tau_S, tau_plas,
      tau_scaling_E, tau_scaling_P, tau_scaling_S,
      tau_theta, tau_beta) = taus
-    (rheobase_E,rheobase_P,rheobase_S) = rheobases
+    (rheobase_E, rheobase_P, rheobase_S) = rheobases
 
     (hebbian_flag, three_factor_flag, adaptive_set_point_flag,
      E_scaling_flag, P_scaling_flag, S_scaling_flag) = flags
@@ -1215,7 +1226,7 @@ def model_2_compartmental_loc_all_to_all(delta_t, hold_every, res_rates, res_wei
     heb_term11, heb_term12, heb_term21, heb_term22 = 0, 0, 0, 0
 
     # info-holder counter (counter) and index (idx) to fill the arrays. np.mod doesn't
-    # work in numba, thus we need counter to hold data at every "hold_every" step
+    # work in numba, thus we need counter to hold data at every "sampling_rate" step
     phase1 = 0
     phase3 = 0
     counter1, counter2 , counter3 = 0, 0, 0
@@ -1240,11 +1251,11 @@ def model_2_compartmental_loc_all_to_all(delta_t, hold_every, res_rates, res_wei
                     learning_rate = 1
 
             if stim_applied == 1:
-                counter2 = hold_every_simulation + 5  # stop the data-holder counter
+                counter2 = sampling_rate_sim + 5  # stop the data-holder counter
 
-            stimulus_E1, stimulus_E2 = stim_train_E[stim_applied]
-            stimulus_P1, stimulus_P2 = stim_train_P[stim_applied]
-            stimulus_S1, stimulus_S2 = stim_train_S[stim_applied]
+            stimulus_E1, stimulus_E2 = g_stim_E[stim_applied]
+            stimulus_P1, stimulus_P2 = g_stim_P[stim_applied]
+            stimulus_S1, stimulus_S2 = g_stim_S[stim_applied]
 
             # if there is more than 1 stimulation, it increases the index number in the stim_times list
             stim_applied = stim_applied + 1 # increase the no stim applied
@@ -1253,7 +1264,7 @@ def model_2_compartmental_loc_all_to_all(delta_t, hold_every, res_rates, res_wei
             g_S = 3 + g_top_down_to_S
 
             if stim_applied == 1:
-                counter2 = hold_every_simulation  # start the data-holder counter
+                counter2 = sampling_rate_sim  # start the data-holder counter
 
             # hebbian is turned off for the testing
             if adaptive_LR_mask:
@@ -1268,33 +1279,33 @@ def model_2_compartmental_loc_all_to_all(delta_t, hold_every, res_rates, res_wei
 
         # setting the counters for phase 1 and 3 with 5 seconds of margin before and after stimulation
         if step == int(2*(1/delta_t)):
-            counter1 = hold_every_stimuli  # start the data-holder counter1
+            counter1 = sampling_rate_stim  # start the data-holder counter1
             phase1 = 1
         elif step == int((stim_times[0][1] + 5 + 2) * (1 / delta_t)):
             phase1 = 0
 
         elif step == int((stim_times[1][0] - 5 + 2) * (1 / delta_t)):
-            counter3 = hold_every_stimuli  # start the data-holder counter3
+            counter3 = sampling_rate_stim  # start the data-holder counter3
             phase3 = 1
         elif step == int((stim_times[1][1] + 5 + 2) * (1 / delta_t)):
             phase3 = 0
 
 
         # values are assigned to the lists
-        if phase1 and counter1 == hold_every_stimuli:
+        if phase1 and counter1 == sampling_rate_stim:
             r_phase1[:,i_1] = [E01, E02, P01, P02, S01, S02, I_D1, I_D2, I_E1, I_E2]
-            J_EE_phase1[:,i_1] = [DE110, DE120, DE210, DE220, EE110, EE120, EE210, EE220]
+            J_exc_phase1[:,i_1] = [DE110, DE120, DE210, DE220, EE110, EE120, EE210, EE220]
 
             i_1 = i_1 + 1
             counter1 = 0  # restart
 
-        elif phase3 and counter3 == hold_every_stimuli:
+        elif phase3 and counter3 == sampling_rate_stim:
             r_phase3[:,i_3] = [E01, E02, P01, P02, S01, S02]
 
             i_3 = i_3 + 1
             counter3 = 0  # restart
 
-        if stim_applied == 1 and counter2 == hold_every_simulation:
+        if stim_applied == 1 and counter2 == sampling_rate_sim:
             r_phase2[:,i_2] = [E01, E02, P01, P02, S01, S02, thetaD1, thetaD2, thetaE1, thetaE2,
                                betaD1, betaD2, betaE1, betaE2, I_D1, I_D2, I_E1, I_E2]
             J_phase2[:,i_2] = [DE110, DE120, DE210, DE220, EE110, EE120, EE210, EE220,
@@ -1427,7 +1438,6 @@ def model_2_compartmental_loc_all_to_all(delta_t, hold_every, res_rates, res_wei
 @jit(nopython=True)
 def model_3_compartmental(delta_t, sampling_rate, l_res_rates, l_res_weights, sim_duration, weights, g,
           g_stim, stim_times, taus, K, rheobases, lambdas, flags=(1,1,1,1,1,1), flags_theta=(1,1)):
-    print('line 1638 in model.py !!!!!!!!!W term in ss formula is commented out!!!!!!!')
 
     ##### Initializing the setup
     (sampling_rate_stim, sampling_rate_sim) = sampling_rate
@@ -1437,12 +1447,12 @@ def model_3_compartmental(delta_t, sampling_rate, l_res_rates, l_res_weights, si
      w_DEij, w_EEij, w_EPij, w_DSij, w_PEij, w_PPij, w_PSij, w_SEij) = weights
     (g_AD, g_BD, g_E, g_P, g_S, g_top_down_to_S) = g
     g_S_total = g_S # total input to S is equal to g_S before the offset of the conditioning
-    (stim_train_E,stim_train_P, stim_train_S) = g_stim
+    (g_stim_E, g_stim_P, g_stim_S) = g_stim
     (stim_start, stim_stop) = stim_times[0]
     (tau_E, tau_P, tau_S, tau_plas,
      tau_scaling_E, tau_scaling_P, tau_scaling_S,
      tau_theta, tau_beta) = taus
-    (rheobase_E,rheobase_P,rheobase_S) = rheobases
+    (rheobase_E, rheobase_P, rheobase_S) = rheobases
     (lambda_AD, lambda_BD) = lambdas
 
     # Setting up initial conditions
@@ -1453,7 +1463,9 @@ def model_3_compartmental(delta_t, sampling_rate, l_res_rates, l_res_weights, si
     DS110, DS120, DS210, DS220 = w_DSii, w_DSij, w_DSij, w_DSii
     E1, E2 = 0,0 #ToDo check if this is necessary
     max_E[0] = 0
-    stimulus_E1, stimulus_P1, stimulus_S1, stimulus_E2, stimulus_P2, stimulus_S2 = 0,0,0,0,0,0 # The stimuli are set to zero initially
+    # The stimuli are set to zero initially
+    stimulus_E1, stimulus_P1, stimulus_S1 = 0,0,0 
+    stimulus_E2, stimulus_P2, stimulus_S2 = 0,0,0 
 
     learning_rate = 1
     r_baseline = 0
@@ -1470,7 +1482,6 @@ def model_3_compartmental(delta_t, sampling_rate, l_res_rates, l_res_weights, si
     counter1, counter2 , counter3 = 0,0,0 # Counter to hold data with the respective sampling rate
     i_1, i_2, i_3 = 0,0,0 # Index to fill the data arrays
 
-
     stim_applied = 0 # The number of stimulation applied is held
 
     ##### The loop of the numerical iterations
@@ -1478,7 +1489,8 @@ def model_3_compartmental(delta_t, sampling_rate, l_res_rates, l_res_weights, si
 
         ### If it is the start of the stimulation
         if step == int((stim_start + 2) * (1 / delta_t)):
-            if stim_applied == 0: # If it is the first stimuli (conditioning)
+            # If it is the first stimuli (conditioning)
+            if stim_applied == 0:
                 r_baseline = E1
                 thetaAD1, thetaAD2, thetaBD1, thetaBD2, thetaE1, thetaE2 = I_AD1, I_AD2, I_BD1, I_BD2, I_E1, I_E2
                 betaAD1, betaAD2, betaBD1, betaBD2, betaE1, betaE2 = I_AD1-K, I_AD2-K, I_BD1-K, I_BD2-K, I_E1-K, I_E2-K
@@ -1486,25 +1498,29 @@ def model_3_compartmental(delta_t, sampling_rate, l_res_rates, l_res_weights, si
                 (hebbian_flag, three_factor_flag, adaptive_set_point_flag,
                  E_scaling_flag, P_scaling_flag, S_scaling_flag) = flags
                 (flag_theta_shift, flag_theta_local) = flags_theta
-                if hebbian_flag: # Hebbian learning is activated at conditioning onset
+
+                # Hebbian learning is activated at conditioning onset
+                if hebbian_flag:
                     learning_rate = 1
 
             if stim_applied == 1: # If it is the second stimuli (testing)
-                counter2 = sampling_rate_sim+5  # Stop the data-holder counter by setting the counter2 to a high value
+                # Stop the data-holder counter by setting the counter2 to a high value
+                counter2 = sampling_rate_sim+5
 
             # Stimulation of the selected cells for the respected stimuli is set
-            stimulus_E1, stimulus_E2 = stim_train_E[stim_applied]
-            stimulus_P1, stimulus_P2 = stim_train_P[stim_applied]
-            stimulus_S1, stimulus_S2 = stim_train_S[stim_applied]
+            stimulus_E1, stimulus_E2 = g_stim_E[stim_applied]
+            stimulus_P1, stimulus_P2 = g_stim_P[stim_applied]
+            stimulus_S1, stimulus_S2 = g_stim_S[stim_applied]
 
-            # if there is more than 1 stimulation, it increases the index number in the stim_times list
-            stim_applied = stim_applied + 1 # Increase the number of stimuli applied
+            # Increase the number of stimuli applied
+            stim_applied = stim_applied + 1
 
         ### If it is the end of the stimulation
         if step == int((stim_stop + 2) * (1 / delta_t)):
-            if stim_applied == 1: # the offset of the conditioning
-                g_S_total = g_S + g_top_down_to_S
-                counter2 = sampling_rate_sim  # start the data-holder counter
+            # The offset of the conditioning
+            if stim_applied == 1:
+                g_S_total = g_S + g_top_down_to_S # Add top-down input to S
+                counter2 = sampling_rate_sim  # Start the data-holder counter
 
                 # Hebbian learning is turned off due to the third factor
                 if three_factor_flag:
@@ -1515,7 +1531,8 @@ def model_3_compartmental(delta_t, sampling_rate, l_res_rates, l_res_weights, si
             stimulus_P1, stimulus_P2 = 0, 0
             stimulus_S1, stimulus_S2 = 0, 0
 
-            if stim_times.shape[0] > stim_applied: # set the new timing for the next stim if exists
+            # Set the new timing for the next stim if exists
+            if stim_times.shape[0] > stim_applied:
                 (stim_start, stim_stop) = stim_times[stim_applied]
 
         ### Setting up the counters for phase 1 and 3 with 5 seconds of margin before and after stimulation
@@ -1562,7 +1579,7 @@ def model_3_compartmental(delta_t, sampling_rate, l_res_rates, l_res_weights, si
             max_E[0] = E01
 
         # If the system exceeds a certain value, assume that it explodes and stop the simulation
-        if E01 > 100:
+        if E01 > 1000:
             break
 
         ### Calculating the firing rates at this timestep
@@ -1596,6 +1613,7 @@ def model_3_compartmental(delta_t, sampling_rate, l_res_rates, l_res_weights, si
         E1 = max(E1, 0); E2 = max(E2, 0)
         P1 = max(P1, 0); P2 = max(P2, 0)
         S1 = max(S1, 0); S2 = max(S2, 0)
+
 
         ### Calculating the plasticity for this timestep
         # Set point regulators for the apical dendrite, basal dendrite, and soma of E populations
@@ -1637,25 +1655,22 @@ def model_3_compartmental(delta_t, sampling_rate, l_res_rates, l_res_weights, si
         ss1_W_DS = S_scaling_flag * delta_t * (1/tau_scaling_S) * (1-ratio_AD1)
         ss2_W_DS = S_scaling_flag * delta_t * (1/tau_scaling_S) * (1-ratio_AD2)
 
-        DE110 = DE110 + ss1_W_DE#*DE110
-        DE120 = DE120 + ss1_W_DE#*DE120
-        DE210 = DE210 + ss2_W_DE#*DE210
-        DE220 = DE220 + ss2_W_DE#*DE220
-
-        EE110 = EE110 + ss1_W_EE#*EE110
-        EE120 = EE120 + ss1_W_EE#*EE120
-        EE210 = EE210 + ss2_W_EE#*EE210
-        EE220 = EE220 + ss2_W_EE#*EE220
-
-        EP11 = EP110 - ss1_W_EP#*EP110
-        EP12 = EP120 - ss1_W_EP#*EP120
-        EP21 = EP210 - ss2_W_EP#*EP210
-        EP22 = EP220 - ss2_W_EP#*EP220
-
-        DS11 = DS110 + ss1_W_DS#*DS110
-        DS12 = DS120 + ss1_W_DS#*DS120
-        DS21 = DS210 + ss2_W_DS#*DS210
-        DS22 = DS220 + ss2_W_DS#*DS220
+        DE110 = DE110 + ss1_W_DE*DE110
+        DE120 = DE120 + ss1_W_DE*DE120
+        DE210 = DE210 + ss2_W_DE*DE210
+        DE220 = DE220 + ss2_W_DE*DE220
+        EE110 = EE110 + ss1_W_EE*EE110
+        EE120 = EE120 + ss1_W_EE*EE120
+        EE210 = EE210 + ss2_W_EE*EE210
+        EE220 = EE220 + ss2_W_EE*EE220
+        EP11  = EP110 - ss1_W_EP*EP110
+        EP12  = EP120 - ss1_W_EP*EP120
+        EP21  = EP210 - ss2_W_EP*EP210
+        EP22  = EP220 - ss2_W_EP*EP220
+        DS11  = DS110 + ss1_W_DS*DS110
+        DS12  = DS120 + ss1_W_DS*DS120
+        DS21  = DS210 + ss2_W_DS*DS210
+        DS22  = DS220 + ss2_W_DS*DS220
 
         # Hebbian terms are calculated and applied
         heb_term11 = hebbian_flag * learning_rate * delta_t * (1 / tau_plas) * (E1 - r_baseline) * E1
