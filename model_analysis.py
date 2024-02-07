@@ -679,10 +679,10 @@ def plot_testing_at_regular_intervals(flags_list, flags_theta=(1,1), dir_data=r'
 
         if plot_results:
             print('Plotting the results.')
-            change_in_reactivation_every_h(r_phase1, l_time_points_phase2, r_phase2, hour_sims, l_delta_rE1,
-                                           av_threshold, delta_t, sampling_rate_sim, dir_plot + name, format='.png')
-            change_in_reactivation_every_h(r_phase1, l_time_points_phase2, r_phase2, hour_sims, l_delta_rE1,
-                                           av_threshold, delta_t, sampling_rate_sim, dir_plot + name, format='.svg')
+            change_in_reactivation_every_h(l_time_points_phase2, hour_sims, l_delta_rE1, av_threshold,
+                                           dir_plot + name, flag_only_S_on=flag_only_S_on, format='.png')
+            change_in_reactivation_every_h(l_time_points_phase2, hour_sims, l_delta_rE1, av_threshold,
+                                           dir_plot + name, flag_only_S_on=flag_only_S_on, format='.svg')
 
 
 

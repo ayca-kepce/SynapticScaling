@@ -421,8 +421,8 @@ def time_plots(t, res_rates, res_weights, av_threshold, stim_times, name, hour_s
 
 
 
-def change_in_reactivation_every_h(r_phase1, l_time_points_phase2, r_phase2, hour_sims, l_delta_rE1, av_threshold,
-                                    delta_t, sampling_rate_sim, name, flag_only_S_on=0, format='.svg'):
+def change_in_reactivation_every_h(l_time_points_phase2, hour_sims, l_delta_rE1, av_threshold,
+                                    name, flag_only_S_on=0, format='.svg'):
 
     # plotting configuration
     ratio = 1.5
@@ -516,6 +516,7 @@ def change_in_reactivation_every_h(r_phase1, l_time_points_phase2, r_phase2, hou
     plt.xlabel(x_label_text, fontsize=font_size_label, **hfont)
 
     if flag_only_S_on:
+        plt.yscale('log')  # Set the y-axis to logarithmic scale
         plt.ylabel('% change in $r_{E1,re}$ (log)', fontsize=font_size_label, **hfont)
         ax.legend(handler_map={tuple: HandlerTuple(ndivide=None)}, fontsize=legend_size, loc='lower center',
                   bbox_to_anchor=(0.5, 1.05), handlelength=3)
