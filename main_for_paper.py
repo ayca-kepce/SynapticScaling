@@ -132,17 +132,17 @@ flags_only_S_on = (hebbian_flag, three_factor_flag, adaptive_set_point_flag,
 
 flags_list = [flags_only_E_on, flags_only_P_on, flags_only_S_on]
 
-analyze_model(24, flags_list[0:2], dir_data = dir_data, dir_plot = dir_plot + r'figure6\\',
+analyze_model(4, flags_list[0:2], dir_data = dir_data, dir_plot = dir_plot + r'figure6\\',
               run_simulation=0, save_results=1, plot_results=1)
-analyze_model(48, flags_list[0:2], dir_data = dir_data, dir_plot = dir_plot + r'figure6\\',
+analyze_model(24, flags_list[0:2], dir_data = dir_data, dir_plot = dir_plot + r'figure6\\',
               run_simulation=0, save_results=1, plot_results=1)
 plot_testing_at_regular_intervals(flags_list[0:2], dir_data = dir_data, dir_plot = dir_plot + r'figure6\\',
                                   run_simulation=0, save_results =1, plot_results=1)
 
 # Plotting margins are different for only SST-to-E scaling on case, thus the related flag is set to True
-analyze_model(24, flags_list[2:], dir_data = dir_data, dir_plot = dir_plot + r'figure6\\',
+analyze_model(4, flags_list[2:], dir_data = dir_data, dir_plot = dir_plot + r'figure6\\',
               flag_only_S_on=True, run_simulation=0, save_results=1, plot_results=1)
-analyze_model(48, flags_list[2:], dir_data = dir_data, dir_plot = dir_plot + r'figure6\\',
+analyze_model(24, flags_list[2:], dir_data = dir_data, dir_plot = dir_plot + r'figure6\\',
               flag_only_S_on=True, run_simulation=0, save_results=1, plot_results=1)
 plot_testing_at_regular_intervals(flags_list[2:], dir_data = dir_data, dir_plot = dir_plot + r'figure6\\',
                                   flag_only_S_on=True, run_simulation=0, save_results =1, plot_results=1)
