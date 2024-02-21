@@ -457,7 +457,7 @@ def change_in_reactivation_every_h(l_time_points_phase2, hour_sims, l_delta_rE1,
         ymin = 1
         ymax = 10000
     else:
-        ymin = -10
+        ymin = 0
         ymax = 100
 
     plt.figure(figsize=(figure_width2, figure_len2))
@@ -478,7 +478,7 @@ def change_in_reactivation_every_h(l_time_points_phase2, hour_sims, l_delta_rE1,
     cmap = mcolors.LinearSegmentedColormap.from_list('custom_cmap', cmap_colors)
 
     # Define the TwoSlopeNorm with vcenter at 15, vmin at -10, and vmax at 100
-    norm = mcolors.TwoSlopeNorm(vmin=-10, vcenter=15, vmax=100)
+    norm = mcolors.TwoSlopeNorm(vmin=0, vcenter=15, vmax=100)
 
     # Normalize the change in reactivation
     values_range = norm(change_in_reactivation)  # Normalize using TwoSlopeNorm
@@ -500,12 +500,9 @@ def change_in_reactivation_every_h(l_time_points_phase2, hour_sims, l_delta_rE1,
     sm.set_array([])
     cbar = plt.colorbar(sm, ax=ax)
     cbar.ax.tick_params(width=line_width, length=tick_len, labelsize=font_size_1)
-    cbar.set_ticks([-10, 15, 100], fontsize=font_size_1, **hfont)
+    cbar.set_ticks([0, 15, 100], fontsize=font_size_1, **hfont)
     cbar.outline.set_linewidth(line_width)  # Set colorbar border thickness
 
-    """plt.vlines(4, ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
-    plt.vlines(24, ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)
-    plt.vlines(48, ymin, ymax, color_list[6], linewidth=plot_line_width, alpha=0.15)"""
 
     plt.xticks(fontsize=font_size_1, **hfont)
     plt.yticks(fontsize=font_size_1, **hfont)
@@ -528,3 +525,102 @@ def change_in_reactivation_every_h(l_time_points_phase2, hour_sims, l_delta_rE1,
     plt.tight_layout()
     plt.savefig(name + '_delta_reactivation_color' + format)
     plt.close()
+
+
+
+
+
+def all_cases_CIR(l_time_points_phase2, hour_sims, l_all_delta_rE1, av_threshold,
+                                    name, format='.svg'):
+
+
+    # plotting configuration
+    ratio = 1.5
+    figure_len, figure_width = 13 * ratio, 19 * ratio
+    font_size_1, font_size_2 = 80 * ratio, 65 * ratio
+    font_size_label = 80 * ratio
+    legend_size = 50 * ratio
+    legend_size2 = 65 * ratio
+    line_width, tick_len = 9 * ratio, 20 * ratio
+    marker_size = 15 * ratio
+    marker_edge_width = 3 * ratio
+    plot_line_width = 9 * ratio
+    hfont = {'fontname': 'Arial'}
+    sns.set(style='ticks')
+
+    x_label_text = 'Time (h)'
+
+    line_style_rb = (0, (0.05, 2.5))
+    line_style_r_at = (0, (5, 5))
+    # defining the colors for
+    color_list = ['#3276b3', '#91bce0', # rE1 and WEE11, rE2 and WEE22
+                  '#C10000', '#EFABAB', # rP1 and WEP11, rP2 and WEP22
+                  '#007100', '#87CB87', # rS1 and WES11, rS2 and WES22
+                  '#6600cc'] # timepoints in long simulation
+
+    ### % Change in reactivation of E1
+    xmin = 0
+    xmax = l_time_points_phase2[-1]
+    ymin = 0
+    ymax = 7.8
+
+    plt.figure(figsize=(figure_width, figure_len))
+    ax = plt.gca()
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_visible(True)
+    ax.spines['left'].set_visible(True)
+    for axis in ['top', 'bottom', 'left', 'right']:
+        ax.spines[axis].set_linewidth(line_width)
+    plt.tick_params(width=line_width, length=tick_len)
+
+    baseline_reactivation = av_threshold / 1.15
+    change_in_reactivation = 100*(np.array(l_all_delta_rE1) - baseline_reactivation) / baseline_reactivation
+
+    # Define the colors for the custom colormap
+    cmap_colors = [(0, 1, 0), (1, 1, 1), (1, 0, 0)]  # White, Red
+    cmap = mcolors.LinearSegmentedColormap.from_list('custom_cmap', cmap_colors)
+
+    # Define the TwoSlopeNorm with vcenter at 15, vmin at -10, and vmax at 100
+    norm = mcolors.TwoSlopeNorm(vmin=0, vcenter=15, vmax=100)
+
+    # Normalize the change in reactivation
+    values_range = norm(change_in_reactivation)  # Normalize using TwoSlopeNorm
+
+    # Plotting and using the values to pick colors
+    for i in range(len(hour_sims) - 1):
+        ax.fill_between(hour_sims[i:i + 2], 7, 7.8, color=cmap(values_range[0][i]), edgecolor=(0, 0, 0, 0))
+        ax.fill_between(hour_sims[i:i + 2], 6, 6.8, color=cmap(values_range[1][i]), edgecolor=(0, 0, 0, 0))
+        ax.fill_between(hour_sims[i:i + 2], 5, 5.8, color=cmap(values_range[2][i]), edgecolor=(0, 0, 0, 0))
+        ax.fill_between(hour_sims[i:i + 2], 4, 4.8, color=cmap(values_range[3][i]), edgecolor=(0, 0, 0, 0))
+        ax.fill_between(hour_sims[i:i + 2], 3, 3.8, color=cmap(values_range[4][i]), edgecolor=(0, 0, 0, 0))
+        ax.fill_between(hour_sims[i:i + 2], 2, 2.8, color=cmap(values_range[5][i]), edgecolor=(0, 0, 0, 0))
+        ax.fill_between(hour_sims[i:i + 2], 1, 1.8, color=cmap(values_range[6][i]), edgecolor=(0, 0, 0, 0))
+        ax.fill_between(hour_sims[i:i + 2], 0, 0.8, color=cmap(values_range[7][i]), edgecolor=(0, 0, 0, 0))
+
+
+    # Create a colorbar
+    """sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    cbar = plt.colorbar(sm, ax=ax)
+    cbar.ax.tick_params(width=line_width, length=tick_len, labelsize=font_size_1)
+    cbar.set_ticks([0, 15, 100], fontsize=font_size_1, **hfont)
+    cbar.outline.set_linewidth(line_width)  # Set colorbar border thickness"""
+
+    plt.xticks(fontsize=font_size_1, **hfont)
+    plt.yticks(fontsize=font_size_1, **hfont)
+
+    plt.ylim([ymin, ymax])
+    plt.xlim([xmin, xmax])
+    plt.xticks([4, 24, 48], fontsize=font_size_1, **hfont)
+    plt.xlabel(x_label_text, fontsize=font_size_label, **hfont)
+    plt.yticks([0.4, 1.4, 2.4, 3.4, 4.4, 5.4, 6.4, 7.4],
+               ['No scaling', 'Only SST-to-E', 'Only PV-to-E', 'Only E-to-E', 'S-to-E off', 'P-to-E off', 'E-to-E off', 'Full model'],
+               fontsize=font_size_1, **hfont)
+    plt.title('% change in $r_{E1,re}$', fontsize=font_size_label, **hfont)
+
+    plt.tight_layout()
+    plt.savefig(name + format)
+    plt.close()
+
+

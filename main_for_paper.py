@@ -146,3 +146,10 @@ analyze_model(24, flags_list[2:], dir_data = dir_data, dir_plot = dir_plot + r'f
               flag_only_S_on=True, run_simulation=0, save_results=1, plot_results=1)
 plot_testing_at_regular_intervals(flags_list[2:], dir_data = dir_data, dir_plot = dir_plot + r'figure6\\',
                                   flag_only_S_on=True, run_simulation=0, save_results =1, plot_results=1)
+
+
+
+### Plotting the summary figure of CIR for all cases (figure number is not determined yet)
+# The simulation of testing the model at every hour is already run in the previous lines. This function reads the
+# data for each case and plots the summary graph.
+plot_all_cases_CIR(dir_data=dir_data, dir_plot=dir_plot)

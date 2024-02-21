@@ -3,7 +3,6 @@ from matplotlib import pyplot as plt
 from matplotlib import colormaps as colmaps
 import matplotlib.colors as mcolors
 from matplotlib.legend_handler import HandlerTuple
-
 import seaborn as sns
 
 
@@ -37,6 +36,50 @@ def determine_name(flags):
 
     elif flags == (1,1,1,0,0,0):
         return "8", "No scaling"
+
+
+
+def find_baseline_reactivation(rE1_conditioning):
+    """
+    :param rE1_conditioning: np.array that holds firing rate of the first excitatory population during conditioning
+    :return: perception threshold of the network to the stimuli received during conditioning
+
+    This function calculates the onset response of the first excitatory population in response to the stimuli, which is
+    defined as the perception threshold of the network. The first excitatory firing rate (rE1) increase during
+    conditioning both due to the stimuli and the Three-factor Hebbian learning.
+
+
+    Since the Hebbian learning is way slower than the rate dynamics, the firing rate increase due to Hebbian learning
+    should be observed later. To simplify, we can assume the change due to Hebbian learning is zero for a couple of
+    miliseconds following the stimuli onset. The change is sudden when the stimuli is presented, then the rate dynamics
+    needs a couple of miliseconds to reach the steady state. The following change in rE1 is due to the Hebbian learning.
+
+    For this purpose, the change in rE1 is calculated at every time point. This change is greater at the beginning due
+    to the stimuli onset. Later, the change of the change is calculated. The sign of every element of this array
+    indicates whether the increase in rE1 accelerates (plus) or decelerates (minus). The change in rE1 due to stimuli
+    initially accelerates, then it decelerates and becomes constant.
+    """
+
+    # Finding change of the change in rE1 every time point
+    change_rE1 = rE1_conditioning - np.roll(rE1_conditioning, 1)
+    change_of_change_rE1 = change_rE1 - np.roll(change_rE1, 1)
+
+    # Finding at which index the sign of the second derivative changes. First two elements are ignored since np.roll
+    # carries out a circular shift which assigns the last element of the input to the first element of the output.
+    # The indexing should be preserved, thus two is added after calculating the sign change
+    l_idx_sign_change = np.where(np.diff(np.sign(change_of_change_rE1[2:])) != 0)[0] + 2
+
+    # When the firing rates explodes due to lack of inhibition, the change in rE1 only accelerates and the perception
+    # threshold becomes irrelevant because the test cannot be conducted due to exploded rates. In this case, the
+    # perception threshold is assigned to the baseline activity (pre-conditioning rate). When the firing rates stabilize
+    # with the present inhibition, the perception threshold can be assigned at the index where the change in rE1 becomes
+    # stable after the sudden acceleration followed by deceleration, which corresponds to the 3rd sign change.
+    if l_idx_sign_change.shape[0] < 2:
+        idx = 0
+    else:
+        idx = l_idx_sign_change[2] + 1
+
+    return idx
 
 
 
@@ -1448,8 +1491,6 @@ def plot_all_only_S(t, res_rates, res_weights, av_threshold, stim_times, name, h
 
 
 
-
-
 def plot_all_3_compartmental(t, res_rates, res_weights, av_threshold, stim_times, name, hour_sim, format='.svg', scale_y=True):
 
     (l_time_points_stim, l_time_points_phase2) = t
@@ -2327,6 +2368,8 @@ def plot_rates_at_regular_intervals(r_phase1, l_time_points_phase2, r_phase2, ho
     plt.close()
 
 
+
+
 def plot_rates_at_regular_intervals_only_S(r_phase1, l_time_points_phase2, r_phase2, hour_sims, l_delta_rE1, av_threshold,
                                     delta_t, sampling_rate_sim, name, format='.svg'):
     # plotting configuration
@@ -2601,6 +2644,8 @@ def plot_rates_at_regular_intervals_only_S(r_phase1, l_time_points_phase2, r_pha
     plt.close()
 
 
+
+
 def plot_span_init_conds(results_list, w_x_axis, w_y_axis, title_x_axis, title_y_axis,
                          directory, name, n, plot_bars=0, plot_legends=0, format='.png', title=''):
 
@@ -2692,44 +2737,4 @@ def plot_span_init_conds(results_list, w_x_axis, w_y_axis, title_x_axis, title_y
 
 
 
-def onset_response(rE1_conditioning):
-    """
-    :param rE1_conditioning: np.array that holds firing rate of the first excitatory population during conditioning
-    :return: perception threshold of the network to the stimuli received during conditioning
 
-    This function calculates the onset response of the first excitatory population in response to the stimuli, which is
-    defined as the perception threshold of the network. The first excitatory firing rate (rE1) increase during
-    conditioning both due to the stimuli and the Three-factor Hebbian learning.
-
-
-    Since the Hebbian learning is way slower than the rate dynamics, the firing rate increase due to Hebbian learning
-    should be observed later. To simplify, we can assume the change due to Hebbian learning is zero for a couple of
-    miliseconds following the stimuli onset. The change is sudden when the stimuli is presented, then the rate dynamics
-    needs a couple of miliseconds to reach the steady state. The following change in rE1 is due to the Hebbian learning.
-
-    For this purpose, the change in rE1 is calculated at every time point. This change is greater at the beginning due
-    to the stimuli onset. Later, the change of the change is calculated. The sign of every element of this array
-    indicates whether the increase in rE1 accelerates (plus) or decelerates (minus). The change in rE1 due to stimuli
-    initially accelerates, then it decelerates and becomes constant.
-    """
-
-    # Finding change of the change in rE1 every time point
-    change_rE1 = rE1_conditioning - np.roll(rE1_conditioning, 1)
-    change_of_change_rE1 = change_rE1 - np.roll(change_rE1, 1)
-
-    # Finding at which index the sign of the second derivative changes. First two elements are ignored since np.roll
-    # carries out a circular shift which assigns the last element of the input to the first element of the output.
-    # The indexing should be preserved, thus two is added after calculating the sign change
-    l_idx_sign_change = np.where(np.diff(np.sign(change_of_change_rE1[2:])) != 0)[0] + 2
-
-    # When the firing rates explodes due to lack of inhibition, the change in rE1 only accelerates and the perception
-    # threshold becomes irrelevant because the test cannot be conducted due to exploded rates. In this case, the
-    # perception threshold is assigned to the baseline activity (pre-conditioning rate). When the firing rates stabilize
-    # with the present inhibition, the perception threshold can be assigned at the index where the change in rE1 becomes
-    # stable after the sudden acceleration followed by deceleration, which corresponds to the 3rd sign change.
-    if l_idx_sign_change.shape[0] < 2:
-        idx = 0
-    else:
-        idx = l_idx_sign_change[2] + 1
-
-    return idx
